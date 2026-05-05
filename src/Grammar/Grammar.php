@@ -25,12 +25,27 @@ class Grammar
         private readonly string $startRule,
         private readonly array $lakeProfiles = [],
     ) {
+        $stateful = false;
+
+        foreach ($rules as $rule) {
+            if ($rule->isStateful()) {
+                $stateful = true;
+                break;
+            }
+        }
+
+        $this->hasStatefulExpressions = $stateful;
     }
 
     /**
      * @var ?bool
      */
     private ?bool $leftRecursionRequired = null;
+
+    /**
+     * @var bool
+     */
+    private readonly bool $hasStatefulExpressions;
 
     /**
      * Returns the configured start rule name.
@@ -85,6 +100,14 @@ class Grammar
     public function lakeProfiles(): array
     {
         return $this->lakeProfiles;
+    }
+
+    /**
+     * Returns whether the grammar contains binding-aware expressions.
+     */
+    public function hasStatefulExpressions(): bool
+    {
+        return $this->hasStatefulExpressions;
     }
 
     /**

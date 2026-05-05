@@ -24,7 +24,13 @@ class Rule
         private readonly ExpressionInterface $expression,
         private readonly bool $isWater = false,
     ) {
+        $this->stateful = $this->expression->isStateful();
     }
+
+    /**
+     * @var bool
+     */
+    private readonly bool $stateful;
 
     /**
      * Returns the rule name.
@@ -51,11 +57,19 @@ class Rule
     }
 
     /**
+     * Returns whether this rule depends on binding state.
+     */
+    public function isStateful(): bool
+    {
+        return $this->stateful;
+    }
+
+    /**
      * Matches this rule and wraps the resulting subtree into an AST node.
      */
     public function match(ParseContext $context, int $offset): ?MatchResult
     {
-        if ($this->expression->isStateful()) {
+        if ($this->stateful) {
             $context->pushBindingFrame();
             try {
                 $result = $this->expression->match($context, $offset);
