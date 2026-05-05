@@ -95,6 +95,11 @@ abstract class ParseContext
     protected readonly LakePlan $lakePlan;
 
     /**
+     * @var bool
+     */
+    protected readonly bool $grammarHasStatefulExpressions;
+
+    /**
      * @var list<array<string, string>>
      */
     protected array $bindingFrames = [];
@@ -112,6 +117,7 @@ abstract class ParseContext
         $this->reuseEmptyMatches = $options->reuseEmptyMatches();
         $this->maxCacheEntries = $options->maxCacheEntries();
         $this->lakePlan = LakePlanCache::forGrammar($grammar);
+        $this->grammarHasStatefulExpressions = $grammar->hasStatefulExpressions();
     }
 
     /**
@@ -159,13 +165,15 @@ abstract class ParseContext
      */
     public function matchExpressionSilently(ExpressionInterface $expression, int $offset): ?MatchResult
     {
-        $snapshot = $this->snapshotBindings();
+        $snapshot = $this->grammarHasStatefulExpressions ? $this->snapshotBindings() : null;
         $this->failureSuppressionDepth++;
         try {
             return $this->matchExpressionInternal($expression, $offset);
         } finally {
             $this->failureSuppressionDepth--;
-            $this->restoreBindings($snapshot);
+            if ($snapshot !== null) {
+                $this->restoreBindings($snapshot);
+            }
         }
     }
 
@@ -202,13 +210,15 @@ abstract class ParseContext
      */
     public function matchRuleSilently(string $ruleName, int $offset): ?MatchResult
     {
-        $snapshot = $this->snapshotBindings();
+        $snapshot = $this->grammarHasStatefulExpressions ? $this->snapshotBindings() : null;
         $this->failureSuppressionDepth++;
         try {
             return $this->matchRule($ruleName, $offset);
         } finally {
             $this->failureSuppressionDepth--;
-            $this->restoreBindings($snapshot);
+            if ($snapshot !== null) {
+                $this->restoreBindings($snapshot);
+            }
         }
     }
 
@@ -414,7 +424,7 @@ abstract class ParseContext
         $cacheKey = null;
         $shouldCache = $this->memoizationEnabled
             && !$this->isRescanningLeftRecursiveRule()
-            && !$this->isStatefulExpression($expression);
+            && (!$this->grammarHasStatefulExpressions || !$this->isStatefulExpression($expression));
         if ($shouldCache) {
             $cacheKey = $this->expressionMemoKey($expression, $offset);
             if (array_key_exists($cacheKey, $this->expressionMemo)) {
