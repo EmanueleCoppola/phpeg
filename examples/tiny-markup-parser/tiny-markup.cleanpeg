@@ -1,0 +1,8 @@
+
+Document = Element EOF
+Element = "<" tag@OpenTagName ">" Content* "</" tag@CloseTagName ">"
+OpenTagName = TagName
+CloseTagName = TagName
+Content = Text / Element
+TagName = r'[a-z][a-z0-9-]*'
+Text = r'[^<]+'
