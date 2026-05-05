@@ -263,13 +263,13 @@ abstract class ParseContext
      */
     public function hasBinding(string $name): bool
     {
-        for ($index = count($this->bindingFrames) - 1; $index >= 0; $index--) {
-            if (array_key_exists($name, $this->bindingFrames[$index])) {
-                return true;
-            }
+        if ($this->bindingFrames === []) {
+            return false;
         }
 
-        return false;
+        $frameIndex = array_key_last($this->bindingFrames);
+
+        return array_key_exists($name, $this->bindingFrames[$frameIndex]);
     }
 
     /**
@@ -277,13 +277,16 @@ abstract class ParseContext
      */
     public function binding(string $name): ?string
     {
-        for ($index = count($this->bindingFrames) - 1; $index >= 0; $index--) {
-            if (array_key_exists($name, $this->bindingFrames[$index])) {
-                return $this->bindingFrames[$index][$name];
-            }
+        if ($this->bindingFrames === []) {
+            return null;
         }
 
-        return null;
+        $frameIndex = array_key_last($this->bindingFrames);
+        if (!array_key_exists($name, $this->bindingFrames[$frameIndex])) {
+            return null;
+        }
+
+        return $this->bindingFrames[$frameIndex][$name];
     }
 
     /**

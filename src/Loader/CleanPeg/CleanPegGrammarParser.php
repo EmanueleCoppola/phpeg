@@ -222,6 +222,12 @@ class CleanPegGrammarParser
                 return $this->wrapSkippable($this->builder->eof());
             }
 
+            if ($this->match('AT')) {
+                return $this->wrapSkippable(
+                    $this->builder->capture($name, $this->parsePrimary())
+                );
+            }
+
             return $this->wrapSkippable($this->builder->ref($name));
         }
 
