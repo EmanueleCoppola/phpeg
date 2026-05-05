@@ -15,9 +15,12 @@ class OptionalExpression extends AbstractExpression
     /**
      * Initializes a new OptionalExpression instance.
      */
+    private readonly bool $stateful;
+
     public function __construct(
         private readonly ExpressionInterface $expression,
     ) {
+        $this->stateful = $expression->isStateful();
     }
 
     /**
@@ -33,7 +36,17 @@ class OptionalExpression extends AbstractExpression
      */
     public function match(ParseContext $context, int $offset): ?MatchResult
     {
-        return $context->matchExpression($this->expression, $offset) ?? $context->emptyMatch($offset);
+        $snapshot = $this->stateful ? $context->snapshotBindings() : null;
+        $result = $context->matchExpression($this->expression, $offset);
+        if ($result === null) {
+            if ($snapshot !== null) {
+                $context->restoreBindings($snapshot);
+            }
+
+            return $context->emptyMatch($offset);
+        }
+
+        return $result;
     }
 
     /**
@@ -42,5 +55,13 @@ class OptionalExpression extends AbstractExpression
     public function describe(): string
     {
         return $this->expression->describe() . '?';
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function isStateful(): bool
+    {
+        return $this->stateful;
     }
 }

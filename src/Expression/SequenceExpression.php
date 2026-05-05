@@ -15,9 +15,20 @@ class SequenceExpression extends AbstractExpression
     /**
      * @param list<ExpressionInterface> $expressions
      */
+    private readonly bool $stateful;
+
     public function __construct(
         private readonly array $expressions,
     ) {
+        $stateful = false;
+        foreach ($expressions as $expression) {
+            if ($expression->isStateful()) {
+                $stateful = true;
+                break;
+            }
+        }
+
+        $this->stateful = $stateful;
     }
 
     /**
@@ -33,12 +44,17 @@ class SequenceExpression extends AbstractExpression
      */
     public function match(ParseContext $context, int $offset): ?MatchResult
     {
+        $snapshot = $this->stateful ? $context->snapshotBindings() : null;
         $nodes = [];
         $cursor = $offset;
 
         foreach ($this->expressions as $expression) {
             $result = $context->matchExpression($expression, $cursor);
             if ($result === null) {
+                if ($snapshot !== null) {
+                    $context->restoreBindings($snapshot);
+                }
+
                 return null;
             }
 
@@ -57,5 +73,13 @@ class SequenceExpression extends AbstractExpression
     public function describe(): string
     {
         return 'sequence';
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function isStateful(): bool
+    {
+        return $this->stateful;
     }
 }

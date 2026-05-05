@@ -142,4 +142,12 @@ class CountingLiteralExpression implements ExpressionInterface
     {
         return sprintf('"%s"', $this->literal);
     }
+
+    /**
+     * @inheritDoc
+     */
+    public function isStateful(): bool
+    {
+        return false;
+    }
 }

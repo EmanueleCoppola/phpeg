@@ -55,6 +55,31 @@ class Rule
      */
     public function match(ParseContext $context, int $offset): ?MatchResult
     {
+        if ($this->expression->isStateful()) {
+            $context->pushBindingFrame();
+            try {
+                $result = $this->expression->match($context, $offset);
+            } finally {
+                $context->popBindingFrame();
+            }
+
+            if ($result === null) {
+                return null;
+            }
+
+            $node = new AstNode(
+                $this->name,
+                $context->options()->lazyNodeText() ? null : $context->input()->slice($offset, $result->endOffset()),
+                $offset,
+                $result->endOffset(),
+                $result->nodes(),
+                $this->isWater ? ['kind' => 'water'] : [],
+                sourceBuffer: $context->options()->lazyNodeText() ? $context->input() : null,
+            );
+
+            return new MatchResult($offset, $result->endOffset(), [$node]);
+        }
+
         $result = $this->expression->match($context, $offset);
         if ($result === null) {
             return null;

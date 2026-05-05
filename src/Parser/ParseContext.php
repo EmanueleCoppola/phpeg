@@ -95,6 +95,11 @@ abstract class ParseContext
     protected readonly LakePlan $lakePlan;
 
     /**
+     * @var list<array<string, string>>
+     */
+    protected array $bindingFrames = [];
+
+    /**
      * Initializes a new ParseContext instance.
      */
     public function __construct(
@@ -154,11 +159,13 @@ abstract class ParseContext
      */
     public function matchExpressionSilently(ExpressionInterface $expression, int $offset): ?MatchResult
     {
+        $snapshot = $this->snapshotBindings();
         $this->failureSuppressionDepth++;
         try {
             return $this->matchExpressionInternal($expression, $offset);
         } finally {
             $this->failureSuppressionDepth--;
+            $this->restoreBindings($snapshot);
         }
     }
 
@@ -195,12 +202,91 @@ abstract class ParseContext
      */
     public function matchRuleSilently(string $ruleName, int $offset): ?MatchResult
     {
+        $snapshot = $this->snapshotBindings();
         $this->failureSuppressionDepth++;
         try {
             return $this->matchRule($ruleName, $offset);
         } finally {
             $this->failureSuppressionDepth--;
+            $this->restoreBindings($snapshot);
         }
+    }
+
+    /**
+     * Pushes a new binding frame on the stack.
+     */
+    public function pushBindingFrame(): void
+    {
+        $this->bindingFrames[] = [];
+    }
+
+    /**
+     * Pops the most recent binding frame.
+     */
+    public function popBindingFrame(): void
+    {
+        array_pop($this->bindingFrames);
+    }
+
+    /**
+     * Returns a snapshot of the current binding stack.
+     *
+     * @return list<array<string, string>>
+     */
+    public function snapshotBindings(): array
+    {
+        return $this->bindingFrames;
+    }
+
+    /**
+     * Restores a previously captured binding stack snapshot.
+     *
+     * @param list<array<string, string>> $snapshot
+     */
+    public function restoreBindings(array $snapshot): void
+    {
+        $this->bindingFrames = $snapshot;
+    }
+
+    /**
+     * Returns whether the current binding stack contains the provided name.
+     */
+    public function hasBinding(string $name): bool
+    {
+        for ($index = count($this->bindingFrames) - 1; $index >= 0; $index--) {
+            if (array_key_exists($name, $this->bindingFrames[$index])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Returns the binding value for the provided name, if present.
+     */
+    public function binding(string $name): ?string
+    {
+        for ($index = count($this->bindingFrames) - 1; $index >= 0; $index--) {
+            if (array_key_exists($name, $this->bindingFrames[$index])) {
+                return $this->bindingFrames[$index][$name];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Stores a binding in the current frame.
+     */
+    public function setBinding(string $name, string $value): void
+    {
+        if ($this->bindingFrames === []) {
+            $this->pushBindingFrame();
+        }
+
+        $frameIndex = array_key_last($this->bindingFrames);
+        $this->bindingFrames[$frameIndex][$name] = $value;
     }
 
     /**
@@ -326,7 +412,10 @@ abstract class ParseContext
     protected function matchExpressionInternal(ExpressionInterface $expression, int $offset): ?MatchResult
     {
         $cacheKey = null;
-        if ($this->memoizationEnabled && !$this->isRescanningLeftRecursiveRule()) {
+        $shouldCache = $this->memoizationEnabled
+            && !$this->isRescanningLeftRecursiveRule()
+            && !$this->isStatefulExpression($expression);
+        if ($shouldCache) {
             $cacheKey = $this->expressionMemoKey($expression, $offset);
             if (array_key_exists($cacheKey, $this->expressionMemo)) {
                 return $this->expressionMemo[$cacheKey];
@@ -347,7 +436,7 @@ abstract class ParseContext
             return $this->matchExpressionDirect($expression, $offset);
         }
 
-        if (!$this->memoizationEnabled) {
+        if (!$shouldCache) {
             return $this->matchExpressionDirect($expression, $offset);
         }
 
@@ -365,6 +454,14 @@ abstract class ParseContext
     protected function matchExpressionDirect(ExpressionInterface $expression, int $offset): ?MatchResult
     {
         return $expression->match($this, $offset);
+    }
+
+    /**
+     * Returns whether the expression depends on parser binding state.
+     */
+    protected function isStatefulExpression(ExpressionInterface $expression): bool
+    {
+        return $expression->isStateful();
     }
 
     /**

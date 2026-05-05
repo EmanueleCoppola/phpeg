@@ -15,9 +15,12 @@ class OneOrMoreExpression extends AbstractExpression
     /**
      * Initializes a new OneOrMoreExpression instance.
      */
+    private readonly bool $stateful;
+
     public function __construct(
         private readonly ExpressionInterface $expression,
     ) {
+        $this->stateful = $expression->isStateful();
     }
 
     /**
@@ -62,5 +65,13 @@ class OneOrMoreExpression extends AbstractExpression
     public function describe(): string
     {
         return $this->expression->describe() . '+';
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function isStateful(): bool
+    {
+        return $this->stateful;
     }
 }

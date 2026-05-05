@@ -21,4 +21,9 @@ interface ExpressionInterface
      * Returns a short human-readable description used in diagnostics.
      */
     public function describe(): string;
+
+    /**
+     * Returns whether the expression depends on parser state that can change across backtracking.
+     */
+    public function isStateful(): bool;
 }

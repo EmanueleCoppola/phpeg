@@ -15,9 +15,12 @@ class NotPredicateExpression extends AbstractExpression
     /**
      * Initializes a new NotPredicateExpression instance.
      */
+    private readonly bool $stateful;
+
     public function __construct(
         private readonly ExpressionInterface $expression,
     ) {
+        $this->stateful = $expression->isStateful();
     }
 
     /**
@@ -48,5 +51,13 @@ class NotPredicateExpression extends AbstractExpression
     public function describe(): string
     {
         return '!' . $this->expression->describe();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function isStateful(): bool
+    {
+        return $this->stateful;
     }
 }

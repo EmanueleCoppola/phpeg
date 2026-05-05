@@ -13,10 +13,13 @@ use EmanueleCoppola\PHPeg\Expression\EndOfInputExpression;
 use EmanueleCoppola\PHPeg\Expression\ExpressionInterface;
 use EmanueleCoppola\PHPeg\Expression\LiteralExpression;
 use EmanueleCoppola\PHPeg\Expression\LakeExpression;
+use EmanueleCoppola\PHPeg\Expression\NamedCaptureExpression;
 use EmanueleCoppola\PHPeg\Expression\NotPredicateExpression;
 use EmanueleCoppola\PHPeg\Expression\OneOrMoreExpression;
 use EmanueleCoppola\PHPeg\Expression\OptionalExpression;
 use EmanueleCoppola\PHPeg\Expression\RegexExpression;
+use EmanueleCoppola\PHPeg\Expression\SpanEqualExpression;
+use EmanueleCoppola\PHPeg\Expression\SpanNotEqualExpression;
 use EmanueleCoppola\PHPeg\Expression\RuleReferenceExpression;
 use EmanueleCoppola\PHPeg\Expression\SequenceExpression;
 use EmanueleCoppola\PHPeg\Expression\ZeroOrMoreExpression;
@@ -169,6 +172,14 @@ class GrammarBuilder
     }
 
     /**
+     * Creates a named capture expression that reuses the same value for repeated matches.
+     */
+    public function capture(string $name, ExpressionInterface $expression): ExpressionInterface
+    {
+        return new NamedCaptureExpression($name, $expression);
+    }
+
+    /**
      * Creates an any-character expression.
      */
     public function any(): ExpressionInterface
@@ -206,6 +217,22 @@ class GrammarBuilder
     public function not(ExpressionInterface $expression): ExpressionInterface
     {
         return new NotPredicateExpression($expression);
+    }
+
+    /**
+     * Creates an equality expression that requires both operands to end at the same offset.
+     */
+    public function sameSpan(ExpressionInterface $left, ExpressionInterface $right): ExpressionInterface
+    {
+        return new SpanEqualExpression($left, $right);
+    }
+
+    /**
+     * Creates an inequality expression that requires both operands to end at different offsets.
+     */
+    public function differentSpan(ExpressionInterface $left, ExpressionInterface $right): ExpressionInterface
+    {
+        return new SpanNotEqualExpression($left, $right);
     }
 
     /**

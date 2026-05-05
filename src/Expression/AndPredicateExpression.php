@@ -15,9 +15,12 @@ class AndPredicateExpression extends AbstractExpression
     /**
      * Initializes a new AndPredicateExpression instance.
      */
+    private readonly bool $stateful;
+
     public function __construct(
         private readonly ExpressionInterface $expression,
     ) {
+        $this->stateful = $expression->isStateful();
     }
 
     /**
@@ -42,5 +45,13 @@ class AndPredicateExpression extends AbstractExpression
     public function describe(): string
     {
         return '&' . $this->expression->describe();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function isStateful(): bool
+    {
+        return $this->stateful;
     }
 }

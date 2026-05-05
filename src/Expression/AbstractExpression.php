@@ -9,4 +9,11 @@ namespace EmanueleCoppola\PHPeg\Expression;
  */
 abstract class AbstractExpression implements ExpressionInterface
 {
+    /**
+     * @inheritDoc
+     */
+    public function isStateful(): bool
+    {
+        return false;
+    }
 }
