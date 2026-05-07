@@ -81,12 +81,14 @@ class PegTokenizer
             }
 
             if ($char === '"' || $char === "'") {
-                $tokens[] = new PegToken('LITERAL', $this->readString($char), $start);
+                [$lexeme, $ignoreCase] = $this->readString($char);
+                $tokens[] = new PegToken('LITERAL', $lexeme, $start, $ignoreCase);
                 continue;
             }
 
             if ($char === '[') {
-                $tokens[] = new PegToken('CHAR_CLASS', $this->readCharClass(), $start);
+                [$lexeme, $ignoreCase] = $this->readCharClass();
+                $tokens[] = new PegToken('CHAR_CLASS', $lexeme, $start, $ignoreCase);
                 continue;
             }
 
@@ -164,8 +166,10 @@ class PegTokenizer
 
     /**
      * Reads a quoted string literal from the current cursor.
+     *
+     * @return array{0:string,1:?bool}
      */
-    private function readString(string $quote): string
+    private function readString(string $quote): array
     {
         $this->offset++;
         $value = '';
@@ -185,7 +189,7 @@ class PegTokenizer
             if ($char === $quote) {
                 $this->offset++;
 
-                return stripcslashes($value);
+                return [stripcslashes($value), $this->consumeIgnoreCaseSuffix()];
             }
 
             $value .= $char;
@@ -197,8 +201,10 @@ class PegTokenizer
 
     /**
      * Reads a character class literal from the current cursor.
+     *
+     * @return array{0:string,1:?bool}
      */
-    private function readCharClass(): string
+    private function readCharClass(): array
     {
         $start = $this->offset;
         $this->offset++;
@@ -213,12 +219,26 @@ class PegTokenizer
             if ($char === ']') {
                 $this->offset++;
 
-                return substr($this->source, $start, $this->offset - $start);
+                return [substr($this->source, $start, $this->offset - $start), $this->consumeIgnoreCaseSuffix()];
             }
 
             $this->offset++;
         }
 
         throw new InvalidArgumentException('Unterminated character class in PEG grammar.');
+    }
+
+    /**
+     * Consumes an optional trailing `i` suffix used for case-insensitive terminals.
+     */
+    private function consumeIgnoreCaseSuffix(): ?bool
+    {
+        if ($this->offset < $this->length && $this->source[$this->offset] === 'i') {
+            $this->offset++;
+
+            return true;
+        }
+
+        return null;
     }
 }

@@ -23,6 +23,7 @@ class Rule
         private readonly string $name,
         private readonly ExpressionInterface $expression,
         private readonly bool $isWater = false,
+        private readonly ?bool $ignoreCase = null,
     ) {
         $this->stateful = $this->expression->isStateful();
     }
@@ -57,6 +58,14 @@ class Rule
     }
 
     /**
+     * Returns the case-sensitivity override for the rule, if any.
+     */
+    public function ignoreCase(): ?bool
+    {
+        return $this->ignoreCase;
+    }
+
+    /**
      * Returns whether this rule depends on binding state.
      */
     public function isStateful(): bool
@@ -69,14 +78,33 @@ class Rule
      */
     public function match(ParseContext $context, int $offset): ?MatchResult
     {
-        if ($this->stateful) {
-            $context->pushBindingFrame();
-            try {
-                $result = $this->expression->match($context, $offset);
-            } finally {
-                $context->popBindingFrame();
+        return $context->withCaseSensitivity($this->ignoreCase, function () use ($context, $offset): ?MatchResult {
+            if ($this->stateful) {
+                $context->pushBindingFrame();
+                try {
+                    $result = $this->expression->match($context, $offset);
+                } finally {
+                    $context->popBindingFrame();
+                }
+
+                if ($result === null) {
+                    return null;
+                }
+
+                $node = new AstNode(
+                    $this->name,
+                    $context->options()->lazyNodeText() ? null : $context->input()->slice($offset, $result->endOffset()),
+                    $offset,
+                    $result->endOffset(),
+                    $result->nodes(),
+                    $this->isWater ? ['kind' => 'water'] : [],
+                    sourceBuffer: $context->options()->lazyNodeText() ? $context->input() : null,
+                );
+
+                return new MatchResult($offset, $result->endOffset(), [$node]);
             }
 
+            $result = $this->expression->match($context, $offset);
             if ($result === null) {
                 return null;
             }
@@ -92,23 +120,6 @@ class Rule
             );
 
             return new MatchResult($offset, $result->endOffset(), [$node]);
-        }
-
-        $result = $this->expression->match($context, $offset);
-        if ($result === null) {
-            return null;
-        }
-
-        $node = new AstNode(
-            $this->name,
-            $context->options()->lazyNodeText() ? null : $context->input()->slice($offset, $result->endOffset()),
-            $offset,
-            $result->endOffset(),
-            $result->nodes(),
-            $this->isWater ? ['kind' => 'water'] : [],
-            sourceBuffer: $context->options()->lazyNodeText() ? $context->input() : null,
-        );
-
-        return new MatchResult($offset, $result->endOffset(), [$node]);
+        });
     }
 }

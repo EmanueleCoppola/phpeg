@@ -6,6 +6,7 @@ namespace EmanueleCoppola\PHPeg\Parser\Packrat;
 
 use EmanueleCoppola\PHPeg\Error\LeftRecursionException;
 use EmanueleCoppola\PHPeg\Grammar\Grammar;
+use EmanueleCoppola\PHPeg\Grammar\Rule;
 use EmanueleCoppola\PHPeg\Parser\InputBuffer;
 use EmanueleCoppola\PHPeg\Parser\ParseContext;
 use EmanueleCoppola\PHPeg\Parser\ParserOptions;
@@ -38,11 +39,21 @@ class PackratParseContext extends ParseContext
      */
     public function matchRule(string $ruleName, int $offset): ?MatchResult
     {
-        if (!$this->memoizationEnabled) {
-            return $this->matchRuleWithoutMemoization($ruleName, $offset);
+        $rule = $this->rules[$ruleName] ?? null;
+        if ($rule === null) {
+            $this->recordFailure($offset, sprintf('rule <%s>', $ruleName));
+
+            return null;
         }
 
-        $entry = $this->memo[$ruleName][$offset] ?? null;
+        $ignoreCase = $this->effectiveRuleIgnoreCase($rule);
+        $ruleKey = $this->ruleMemoKey($ruleName, $ignoreCase);
+
+        if (!$this->memoizationEnabled) {
+            return $this->matchRuleWithoutMemoization($ruleKey, $rule, $offset);
+        }
+
+        $entry = $this->memo[$ruleKey][$offset] ?? null;
         if ($entry instanceof RuleMemoEntry) {
             if ($entry->isEvaluating()) {
                 throw new LeftRecursionException($ruleName, $offset);
@@ -51,15 +62,8 @@ class PackratParseContext extends ParseContext
             return $entry->result();
         }
 
-        $rule = $this->rules[$ruleName] ?? null;
-        if ($rule === null) {
-            $this->recordFailure($offset, sprintf('rule <%s>', $ruleName));
-
-            return null;
-        }
-
         $entry = new RuleMemoEntry();
-        $this->memo[$ruleName][$offset] = $entry;
+        $this->memo[$ruleKey][$offset] = $entry;
 
         try {
             $entry->beginEvaluation();
@@ -70,7 +74,7 @@ class PackratParseContext extends ParseContext
 
         $entry->setResult($result);
 
-        $this->rememberRuleResult($ruleName, $offset, $entry);
+        $this->rememberRuleResult($ruleKey, $offset, $entry);
 
         return $result;
     }
@@ -78,26 +82,19 @@ class PackratParseContext extends ParseContext
     /**
      * Matches a rule with only active-call tracking when memoization is disabled.
      */
-    private function matchRuleWithoutMemoization(string $ruleName, int $offset): ?MatchResult
+    private function matchRuleWithoutMemoization(string $ruleKey, Rule $rule, int $offset): ?MatchResult
     {
-        $rule = $this->rules[$ruleName] ?? null;
-        if ($rule === null) {
-            $this->recordFailure($offset, sprintf('rule <%s>', $ruleName));
-
-            return null;
+        if (isset($this->evaluatingRules[$ruleKey][$offset])) {
+            throw new LeftRecursionException($rule->name(), $offset);
         }
 
-        if (isset($this->evaluatingRules[$ruleName][$offset])) {
-            throw new LeftRecursionException($ruleName, $offset);
-        }
-
-        $this->evaluatingRules[$ruleName][$offset] = true;
+        $this->evaluatingRules[$ruleKey][$offset] = true;
         try {
             return $rule->match($this, $offset);
         } finally {
-            unset($this->evaluatingRules[$ruleName][$offset]);
-            if ($this->evaluatingRules[$ruleName] === []) {
-                unset($this->evaluatingRules[$ruleName]);
+            unset($this->evaluatingRules[$ruleKey][$offset]);
+            if ($this->evaluatingRules[$ruleKey] === []) {
+                unset($this->evaluatingRules[$ruleKey]);
             }
         }
     }

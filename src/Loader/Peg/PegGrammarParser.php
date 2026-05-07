@@ -10,7 +10,7 @@ use EmanueleCoppola\PHPeg\Expression\ExpressionInterface;
 use EmanueleCoppola\PHPeg\Grammar\Grammar;
 
 /**
- * Parses classic PEG grammar syntax into PHPPeg grammar objects.
+ * Parses classic PEG grammar syntax into PHPeg grammar objects.
  */
 class PegGrammarParser
 {
@@ -55,7 +55,7 @@ class PegGrammarParser
             if ($annotations['lake']) {
                 $this->builder->lakeRule($name, $expression);
             } else {
-                $this->builder->rule($name, $expression, $annotations['water']);
+                $this->builder->rule($name, $expression, $annotations['water'], $annotations['ignoreCase']);
                 $firstRule ??= $name;
             }
         }
@@ -70,14 +70,15 @@ class PegGrammarParser
     }
 
     /**
-     * Parses optional `@water` annotations before a rule definition.
+     * Parses optional annotations before a rule definition.
      *
-     * @return array{water: bool, lake: bool}
+     * @return array{water: bool, lake: bool, ignoreCase: ?bool}
      */
     private function parseAnnotations(): array
     {
         $isWater = false;
         $isLake = false;
+        $ignoreCase = null;
 
         while ($this->match('AT')) {
             $annotation = $this->consume('IDENT', 'Expected annotation name after "@".')->lexeme;
@@ -91,6 +92,24 @@ class PegGrammarParser
                 continue;
             }
 
+            if ($annotation === 'insensitive') {
+                if ($ignoreCase === false) {
+                    throw new InvalidArgumentException('PEG annotations "@insensitive" and "@sensitive" cannot be combined on the same rule.');
+                }
+
+                $ignoreCase = true;
+                continue;
+            }
+
+            if ($annotation === 'sensitive') {
+                if ($ignoreCase === true) {
+                    throw new InvalidArgumentException('PEG annotations "@insensitive" and "@sensitive" cannot be combined on the same rule.');
+                }
+
+                $ignoreCase = false;
+                continue;
+            }
+
             throw new InvalidArgumentException(sprintf('Unsupported PEG annotation "@%s".', $annotation));
         }
 
@@ -98,7 +117,7 @@ class PegGrammarParser
             throw new InvalidArgumentException('PEG annotations "@water" and "@lake" cannot be combined on the same rule.');
         }
 
-        return ['water' => $isWater, 'lake' => $isLake];
+        return ['water' => $isWater, 'lake' => $isLake, 'ignoreCase' => $ignoreCase];
     }
 
     /**
@@ -187,11 +206,15 @@ class PegGrammarParser
     private function parsePrimary(): ExpressionInterface
     {
         if ($this->match('LITERAL')) {
-            return $this->builder->literal($this->previous()->lexeme);
+            $token = $this->previous();
+
+            return $this->builder->literal($token->lexeme, $token->ignoreCase);
         }
 
         if ($this->match('CHAR_CLASS')) {
-            return $this->builder->charClass($this->previous()->lexeme);
+            $token = $this->previous();
+
+            return $this->builder->charClass($token->lexeme, $token->ignoreCase);
         }
 
         if ($this->match('DOT')) {

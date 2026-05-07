@@ -19,5 +19,6 @@ class PegTokenTest extends TestCase
         self::assertSame('IDENT', $token->type);
         self::assertSame('Start', $token->lexeme);
         self::assertSame(3, $token->offset);
+        self::assertNull($token->ignoreCase);
     }
 }

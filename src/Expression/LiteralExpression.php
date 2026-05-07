@@ -16,14 +16,18 @@ class LiteralExpression extends AbstractExpression
 
     private readonly string $description;
 
+    private readonly ?bool $ignoreCase;
+
     /**
      * Initializes a new LiteralExpression instance.
      */
     public function __construct(
         private readonly string $literal,
+        ?bool $ignoreCase = null,
     ) {
         $this->length = strlen($literal);
         $this->description = sprintf('"%s"', $literal);
+        $this->ignoreCase = $ignoreCase;
     }
 
     /**
@@ -35,11 +39,21 @@ class LiteralExpression extends AbstractExpression
     }
 
     /**
+     * Returns the literal case-sensitivity override, if any.
+     */
+    public function ignoreCase(): ?bool
+    {
+        return $this->ignoreCase;
+    }
+
+    /**
      * @inheritDoc
      */
     public function match(ParseContext $context, int $offset): ?MatchResult
     {
-        if (substr_compare($context->input()->text(), $this->literal, $offset, $this->length) !== 0) {
+        $ignoreCase = $this->ignoreCase ?? $context->currentIgnoreCase();
+
+        if (substr_compare($context->input()->text(), $this->literal, $offset, $this->length, $ignoreCase) !== 0) {
             $context->recordFailure($offset, $this->describe());
 
             return null;

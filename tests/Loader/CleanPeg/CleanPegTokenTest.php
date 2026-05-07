@@ -20,5 +20,6 @@ class CleanPegTokenTest extends TestCase
         self::assertSame('Json', $token->lexeme);
         self::assertSame(2, $token->line);
         self::assertSame(5, $token->column);
+        self::assertNull($token->ignoreCase);
     }
 }

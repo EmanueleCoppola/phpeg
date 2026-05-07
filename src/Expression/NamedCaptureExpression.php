@@ -18,6 +18,7 @@ class NamedCaptureExpression extends AbstractExpression
     public function __construct(
         private readonly string $name,
         private readonly ExpressionInterface $expression,
+        private readonly ?bool $ignoreCase = null,
     ) {
     }
 
@@ -38,35 +39,61 @@ class NamedCaptureExpression extends AbstractExpression
     }
 
     /**
+     * Returns the capture case-sensitivity override, if any.
+     */
+    public function ignoreCase(): ?bool
+    {
+        return $this->ignoreCase;
+    }
+
+    /**
      * @inheritDoc
      */
     public function match(ParseContext $context, int $offset): ?MatchResult
     {
-        $snapshot = $context->snapshotBindings();
-        $result = $context->matchExpression($this->expression, $offset);
-        if ($result === null) {
-            $context->restoreBindings($snapshot);
-            $context->recordFailure($offset, $this->describe());
+        $runner = function () use ($context, $offset): ?MatchResult {
+            $snapshot = $context->snapshotBindings();
+            $result = $context->matchExpression($this->expression, $offset);
+            if ($result === null) {
+                $context->restoreBindings($snapshot);
+                $context->recordFailure($offset, $this->describe());
 
-            return null;
-        }
+                return null;
+            }
 
-        $value = trim($context->input()->slice($offset, $result->endOffset()));
-        $binding = $context->binding($this->name);
-        if ($binding === null) {
-            $context->setBinding($this->name, $value);
+            $value = trim($context->input()->slice($offset, $result->endOffset()));
+            $binding = $context->binding($this->name);
+            if ($binding === null) {
+                $context->setBinding($this->name, $value);
+
+                return $result;
+            }
+
+            if (!$this->compareBinding($binding, $value, $context)) {
+                $context->restoreBindings($snapshot);
+                $context->recordFailure($offset, $this->describe());
+
+                return null;
+            }
 
             return $result;
+        };
+
+        if ($this->ignoreCase !== null) {
+            return $context->withCaseSensitivity($this->ignoreCase, $runner);
         }
 
-        if ($binding !== $value) {
-            $context->restoreBindings($snapshot);
-            $context->recordFailure($offset, $this->describe());
+        return $runner();
+    }
 
-            return null;
-        }
+    /**
+     * Compares the capture binding against a later match.
+     */
+    private function compareBinding(string $binding, string $value, ParseContext $context): bool
+    {
+        $ignoreCase = $this->ignoreCase ?? $context->currentIgnoreCase();
 
-        return $result;
+        return $ignoreCase ? strcasecmp($binding, $value) === 0 : $binding === $value;
     }
 
     /**

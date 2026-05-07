@@ -110,6 +110,11 @@ abstract class ParseContext
     protected array $bindingFrames = [];
 
     /**
+     * @var list<bool>
+     */
+    protected array $caseSensitivityFrames = [];
+
+    /**
      * Initializes a new ParseContext instance.
      */
     public function __construct(
@@ -309,6 +314,35 @@ abstract class ParseContext
     }
 
     /**
+     * Returns the current case-sensitivity mode for the active scope.
+     */
+    public function currentIgnoreCase(): bool
+    {
+        if ($this->caseSensitivityFrames === []) {
+            return false;
+        }
+
+        return $this->caseSensitivityFrames[array_key_last($this->caseSensitivityFrames)];
+    }
+
+    /**
+     * Executes a callback with an optional case-sensitivity override.
+     */
+    public function withCaseSensitivity(?bool $ignoreCase, callable $callback): mixed
+    {
+        if ($ignoreCase === null) {
+            return $callback();
+        }
+
+        $this->caseSensitivityFrames[] = $ignoreCase;
+        try {
+            return $callback();
+        } finally {
+            array_pop($this->caseSensitivityFrames);
+        }
+    }
+
+    /**
      * Records an expected token description at a failing offset.
      */
     public function recordFailure(int $offset, string $expected): void
@@ -380,18 +414,15 @@ abstract class ParseContext
     /**
      * Stores a memoized rule entry and applies the configured cache limit.
      */
-    /**
-     * Stores a memoized rule entry and applies the configured cache limit.
-     */
-    protected function rememberRuleResult(string $ruleName, int $offset, RuleMemoEntry $entry): void
+    protected function rememberRuleResult(string $ruleKey, int $offset, RuleMemoEntry $entry): void
     {
-        $this->memo[$ruleName][$offset] = $entry;
+        $this->memo[$ruleKey][$offset] = $entry;
 
         if ($this->maxCacheEntries === null) {
             return;
         }
 
-        $this->memoOrder[] = ['rule' => $ruleName, 'offset' => $offset];
+        $this->memoOrder[] = ['rule' => $ruleKey, 'offset' => $offset];
 
         while (count($this->memoOrder) > $this->maxCacheEntries) {
             $entry = array_shift($this->memoOrder);
@@ -512,11 +543,29 @@ abstract class ParseContext
      */
     protected function expressionMemoKey(ExpressionInterface $expression, int $offset): string
     {
+        $caseSignature = $this->currentIgnoreCase() ? 'i' : 's';
+
         if ($this->bannedLakeIdStack === []) {
-            return spl_object_id($expression) . '|' . $offset;
+            return $caseSignature . '|' . spl_object_id($expression) . '|' . $offset;
         }
 
-        return $this->bannedLakeSignature() . '|' . spl_object_id($expression) . '|' . $offset;
+        return $caseSignature . '|' . $this->bannedLakeSignature() . '|' . spl_object_id($expression) . '|' . $offset;
+    }
+
+    /**
+     * Returns a memoization key for a rule name under the current case-sensitivity scope.
+     */
+    protected function ruleMemoKey(string $ruleName, bool $ignoreCase): string
+    {
+        return ($ignoreCase ? 'i' : 's') . '|' . $ruleName;
+    }
+
+    /**
+     * Returns the effective ignore-case mode for a rule in the current scope.
+     */
+    protected function effectiveRuleIgnoreCase(Rule $rule): bool
+    {
+        return $rule->ignoreCase() ?? $this->currentIgnoreCase();
     }
 
     /**

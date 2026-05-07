@@ -65,14 +65,15 @@ class GrammarBuilder
      * Adds or replaces a rule definition.
      *
      * @param bool $isWater Marks the rule as water so lake matching can consume it as background text.
+     * @param ?bool $ignoreCase Sets the rule default case mode; null inherits from the active scope.
      */
-    public function rule(string $name, ExpressionInterface $expression, bool $isWater = false): self
+    public function rule(string $name, ExpressionInterface $expression, bool $isWater = false, ?bool $ignoreCase = null): self
     {
         if ($this->startRule === null) {
             $this->startRule = $name;
         }
 
-        $this->rules[$name] = new Rule($name, $expression, $isWater);
+        $this->rules[$name] = new Rule($name, $expression, $isWater, $ignoreCase);
 
         return $this;
     }
@@ -101,26 +102,32 @@ class GrammarBuilder
 
     /**
      * Creates a literal expression.
+     *
+     * @param ?bool $ignoreCase Sets the node case mode; null inherits from the active scope.
      */
-    public function literal(string $literal): ExpressionInterface
+    public function literal(string $literal, ?bool $ignoreCase = null): ExpressionInterface
     {
-        return new LiteralExpression($literal);
+        return new LiteralExpression($literal, $ignoreCase);
     }
 
     /**
      * Creates a character class expression such as [0-9].
+     *
+     * @param ?bool $ignoreCase Sets the node case mode; null inherits from the active scope.
      */
-    public function charClass(string $pattern): ExpressionInterface
+    public function charClass(string $pattern, ?bool $ignoreCase = null): ExpressionInterface
     {
-        return new CharClassExpression($pattern);
+        return new CharClassExpression($pattern, $ignoreCase);
     }
 
     /**
      * Creates an anchored regex expression.
+     *
+     * @param ?bool $ignoreCase Sets the node case mode; null inherits from the active scope.
      */
-    public function regex(string $pattern): ExpressionInterface
+    public function regex(string $pattern, ?bool $ignoreCase = null): ExpressionInterface
     {
-        return new RegexExpression($pattern);
+        return new RegexExpression($pattern, $ignoreCase);
     }
 
     /**
@@ -173,10 +180,12 @@ class GrammarBuilder
 
     /**
      * Creates a named capture expression that reuses the same value for repeated matches.
+     *
+     * @param ?bool $ignoreCase Sets the node case mode; null inherits from the active scope.
      */
-    public function capture(string $name, ExpressionInterface $expression): ExpressionInterface
+    public function capture(string $name, ExpressionInterface $expression, ?bool $ignoreCase = null): ExpressionInterface
     {
-        return new NamedCaptureExpression($name, $expression);
+        return new NamedCaptureExpression($name, $expression, $ignoreCase);
     }
 
     /**

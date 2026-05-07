@@ -39,22 +39,22 @@ If you do not call `grammar()`, the first rule you add becomes the start rule.
 ### Grammar Definition
 
 - `grammar(string $startRule): self`
-- `rule(string $name, ExpressionInterface $expression, bool $isWater = false): self`
+- `rule(string $name, ExpressionInterface $expression, bool $isWater = false, ?bool $ignoreCase = null): self`
 - `lakeRule(string $name, ExpressionInterface $expression): self`
 - `build(): Grammar`
 
 ### Expression Constructors
 
-- `literal(string $literal): ExpressionInterface`
-- `regex(string $pattern): ExpressionInterface`
-- `charClass(string $pattern): ExpressionInterface`
+- `literal(string $literal, ?bool $ignoreCase = null): ExpressionInterface`
+- `regex(string $pattern, ?bool $ignoreCase = null): ExpressionInterface`
+- `charClass(string $pattern, ?bool $ignoreCase = null): ExpressionInterface`
 - `seq(ExpressionInterface ...$expressions): ExpressionInterface`
 - `choice(ExpressionInterface ...$expressions): ExpressionInterface`
 - `zeroOrMore(ExpressionInterface $expression): ExpressionInterface`
 - `oneOrMore(ExpressionInterface $expression): ExpressionInterface`
 - `optional(ExpressionInterface $expression): ExpressionInterface`
 - `ref(string $name): ExpressionInterface`
-- `capture(string $name, ExpressionInterface $expression): ExpressionInterface`
+- `capture(string $name, ExpressionInterface $expression, ?bool $ignoreCase = null): ExpressionInterface`
 - `any(): ExpressionInterface`
 - `eof(): ExpressionInterface`
 - `and(ExpressionInterface $expression): ExpressionInterface`
@@ -78,7 +78,10 @@ Matches an exact string at the current offset.
 
 ```php
 $g->literal('if');
+$g->literal('if', true);
 ```
+
+Pass `true` to make the terminal case-insensitive for that node only.
 
 ### `regex()`
 
@@ -87,7 +90,10 @@ Use this for token-like fragments where a direct regex is clearer than a charact
 
 ```php
 $g->regex('[0-9]+');
+$g->regex('[A-Z]+', true);
 ```
+
+Pass `true` to force a case-insensitive regex terminal.
 
 ### `charClass()`
 
@@ -95,7 +101,10 @@ Matches a single character from a bracket expression.
 
 ```php
 $g->charClass('[a-zA-Z_]');
+$g->charClass('[a-zA-Z_]', true);
 ```
+
+Pass `true` to force case-insensitive matching for that character class node.
 
 ### `seq()`
 
@@ -177,6 +186,8 @@ $g->seq(
     $g->literal('>'),
 );
 ```
+
+The optional third argument follows the same case-sensitivity rules as other terminal nodes when you need the capture body to match under a local override.
 
 That accepts `<note>text</note>` and rejects `<note>text</div>`.
 

@@ -67,6 +67,27 @@ r'\d*\.\d*|\d+'
 ```
 
 The pattern is compiled into a builder `regex()` expression and matched at the current offset.
+Add a trailing `i` to make the terminal case-insensitive:
+
+```cleanpeg
+"if"i
+r'[A-Z]+'i
+```
+
+### Case Sensitivity
+
+Use `@insensitive` or `@sensitive` before a rule to set the default case mode for that rule and its descendants.
+The nearest override wins, so a sensitive child can sit inside an insensitive parent, and a terminal suffix `i` can override a sensitive scope for a single literal or regex.
+
+```cleanpeg
+@insensitive
+Start = Prefix
+Prefix = "abc"
+
+@sensitive
+Strict = "Ab"
+Loose = "ab"i
+```
 
 ### Sequences
 

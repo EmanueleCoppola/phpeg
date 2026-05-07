@@ -16,6 +16,7 @@ class PegToken
         public readonly string $type,
         public readonly string $lexeme,
         public readonly int $offset,
+        public readonly ?bool $ignoreCase = null,
     ) {
     }
 }

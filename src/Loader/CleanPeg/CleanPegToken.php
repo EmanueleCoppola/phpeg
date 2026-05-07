@@ -17,6 +17,7 @@ class CleanPegToken
         public readonly string $lexeme,
         public readonly int $line,
         public readonly int $column,
+        public readonly ?bool $ignoreCase = null,
     ) {
     }
 }

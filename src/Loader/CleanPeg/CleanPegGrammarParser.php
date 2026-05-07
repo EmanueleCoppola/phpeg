@@ -10,7 +10,7 @@ use EmanueleCoppola\PHPeg\Expression\ExpressionInterface;
 use EmanueleCoppola\PHPeg\Grammar\Grammar;
 
 /**
- * Parses CleanPeg grammar syntax into PHPPeg grammar objects.
+ * Parses CleanPeg grammar syntax into PHPeg grammar objects.
  */
 class CleanPegGrammarParser
 {
@@ -68,7 +68,7 @@ class CleanPegGrammarParser
             if ($annotations['lake']) {
                 $this->builder->lakeRule($name, $expression);
             } else {
-                $this->builder->rule($name, $expression, $annotations['water']);
+                $this->builder->rule($name, $expression, $annotations['water'], $annotations['ignoreCase']);
                 $firstRule ??= $name;
             }
 
@@ -87,14 +87,15 @@ class CleanPegGrammarParser
     }
 
     /**
-     * Parses optional `@water` annotations before a rule definition.
+     * Parses optional annotations before a rule definition.
      *
-     * @return array{water: bool, lake: bool}
+     * @return array{water: bool, lake: bool, ignoreCase: ?bool}
      */
     private function parseAnnotations(): array
     {
         $isWater = false;
         $isLake = false;
+        $ignoreCase = null;
 
         while ($this->match('AT')) {
             $annotation = $this->consume('IDENT', 'expected annotation name after "@"')->lexeme;
@@ -112,6 +113,30 @@ class CleanPegGrammarParser
                 continue;
             }
 
+            if ($annotation === 'insensitive') {
+                if ($ignoreCase === false) {
+                    $token = $this->peek();
+                    throw new GrammarSyntaxError('CleanPeg', $token->line, $token->column, 'annotations "@insensitive" and "@sensitive" cannot be combined on the same rule');
+                }
+
+                $ignoreCase = true;
+                while ($this->match('NEWLINE')) {
+                }
+                continue;
+            }
+
+            if ($annotation === 'sensitive') {
+                if ($ignoreCase === true) {
+                    $token = $this->peek();
+                    throw new GrammarSyntaxError('CleanPeg', $token->line, $token->column, 'annotations "@insensitive" and "@sensitive" cannot be combined on the same rule');
+                }
+
+                $ignoreCase = false;
+                while ($this->match('NEWLINE')) {
+                }
+                continue;
+            }
+
             $token = $this->peek();
             throw new GrammarSyntaxError('CleanPeg', $token->line, $token->column, sprintf('unsupported annotation "@%s"', $annotation));
         }
@@ -121,7 +146,7 @@ class CleanPegGrammarParser
             throw new GrammarSyntaxError('CleanPeg', $token->line, $token->column, 'annotations "@water" and "@lake" cannot be combined on the same rule');
         }
 
-        return ['water' => $isWater, 'lake' => $isLake];
+        return ['water' => $isWater, 'lake' => $isLake, 'ignoreCase' => $ignoreCase];
     }
 
     /**
@@ -208,11 +233,15 @@ class CleanPegGrammarParser
     private function parsePrimary(): ExpressionInterface
     {
         if ($this->match('STRING')) {
-            return $this->wrapSkippable($this->builder->literal($this->previous()->lexeme));
+            $token = $this->previous();
+
+            return $this->wrapSkippable($this->builder->literal($token->lexeme, $token->ignoreCase));
         }
 
         if ($this->match('REGEX')) {
-            return $this->wrapSkippable($this->builder->regex($this->previous()->lexeme));
+            $token = $this->previous();
+
+            return $this->wrapSkippable($this->builder->regex($token->lexeme, $token->ignoreCase));
         }
 
         if ($this->match('IDENT')) {

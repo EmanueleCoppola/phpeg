@@ -18,10 +18,12 @@ Practical differences:
   - `EOF` is not built in, so you usually define it yourself
   - whitespace is not skipped automatically
   - you get the closest fit to traditional PEG notation
+  - case sensitivity can be scoped with `@insensitive` / `@sensitive` and overridden on terminals with `i`
 - **CleanPeg Loader**
   - `EOF` is built in
   - whitespace is skipped automatically by default
   - the syntax is shorter, but the loader adds convenience behavior
+  - case sensitivity can be scoped with `@insensitive` / `@sensitive` and overridden on terminals with `i`
 
 ## Pages
 

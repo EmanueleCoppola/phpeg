@@ -65,4 +65,47 @@ CLEANPEG, 'Program', null);
         self::assertSame('foo bar', $lake?->text());
         self::assertSame('foo bar', $water?->text());
     }
+
+    /**
+     * Verifies case-insensitive annotations are inherited by nested rule references.
+     */
+    public function testParsesCleanPegInsensitiveAnnotation(): void
+    {
+        $grammar = CleanPegGrammarParser::parse(<<<'CLEANPEG'
+@insensitive
+Start = Prefix
+Prefix = "abc"
+CLEANPEG, 'Start', null);
+
+        self::assertTrue($grammar->parse('ABC')->isSuccess());
+    }
+
+    /**
+     * Verifies a sensitive child rule can override an inherited insensitive scope.
+     */
+    public function testParsesCleanPegSensitiveOverrideAnnotation(): void
+    {
+        $grammar = CleanPegGrammarParser::parse(<<<'CLEANPEG'
+@insensitive
+Start = SensitivePart
+@sensitive
+SensitivePart = "Ab"
+CLEANPEG, 'Start', null);
+
+        self::assertTrue($grammar->parse('Ab')->isSuccess());
+        self::assertFalse($grammar->parse('ab')->isSuccess());
+    }
+
+    /**
+     * Verifies the terminal suffix `i` overrides the surrounding sensitive scope.
+     */
+    public function testParsesCleanPegInsensitiveTerminalSuffix(): void
+    {
+        $grammar = CleanPegGrammarParser::parse(<<<'CLEANPEG'
+@sensitive
+Start = "ab"i
+CLEANPEG, 'Start', null);
+
+        self::assertTrue($grammar->parse('AB')->isSuccess());
+    }
 }

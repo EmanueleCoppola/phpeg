@@ -51,6 +51,11 @@ Both single and double quoted strings are supported.
 ```
 
 Escape handling follows the tokenizer used by the loader.
+Add a trailing `i` to make a literal case-insensitive:
+
+```peg
+'if'i
+```
 
 ### Character Classes
 
@@ -59,6 +64,12 @@ Character classes are supported directly.
 ```peg
 [0-9]
 [a-zA-Z_]
+```
+
+Add a trailing `i` to make a character class case-insensitive:
+
+```peg
+[a-zA-Z_]i
 ```
 
 ### Sequences
@@ -135,6 +146,21 @@ Use one of these alternatives when you need those checks:
 - CleanPeg `name@Expression` for reusable text equality inside a rule
 - the fluent builder `capture()` method for the same named-capture behavior in PHP
 - the fluent builder `sameSpan()` and `differentSpan()` methods for same-offset and different-offset checks
+
+### Case Sensitivity
+
+Use `@insensitive` or `@sensitive` before a rule to set the default case mode for that rule and its descendants.
+The nearest override wins, so a sensitive child can sit inside an insensitive parent, and a terminal suffix `i` can override a sensitive scope for a single literal or character class.
+
+```peg
+@insensitive
+Start <- Prefix
+Prefix <- 'abc'
+
+@sensitive
+Strict <- 'Ab'
+Loose <- 'ab'i
+```
 
 ### Lake Nodes
 

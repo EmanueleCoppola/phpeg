@@ -24,6 +24,7 @@ class ParseCommandTest extends TestCase
             '--input=' . $this->projectRoot() . '/examples/nginx-config-edit/nginx-config.conf',
             '--grammar-format=cleanpeg',
             '--query=Block[name="server"]',
+            '--json-style=full',
         ]);
 
         self::assertSame(0, $exitCode, $stderr);
@@ -41,9 +42,9 @@ class ParseCommandTest extends TestCase
     }
 
     /**
-     * Verifies the compact JSON style keeps only the essential fields.
+     * Verifies the default JSON style keeps only the essential fields.
      */
-    public function testParsesGrammarAndExportsCompactJsonForLakeNodes(): void
+    public function testParsesGrammarAndExportsSimpleJsonByDefault(): void
     {
         [$grammarPath, $inputPath] = $this->createCompactLakeFixture();
 
@@ -55,7 +56,6 @@ class ParseCommandTest extends TestCase
             '--input=' . $inputPath,
             '--grammar-format=cleanpeg',
             '--query=Lake[kind="lake"]',
-            '--json-style=simple',
         ]);
 
         self::assertSame(0, $exitCode, $stderr);

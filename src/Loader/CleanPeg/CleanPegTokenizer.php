@@ -78,12 +78,14 @@ class CleanPegTokenizer
             }
 
             if ($char === '"') {
-                $tokens[] = new CleanPegToken('STRING', $this->readString(), $line, $column);
+                [$lexeme, $ignoreCase] = $this->readString();
+                $tokens[] = new CleanPegToken('STRING', $lexeme, $line, $column, $ignoreCase);
                 continue;
             }
 
             if ($char === 'r' && $this->offset + 1 < $this->length && ($this->source[$this->offset + 1] === '\'' || $this->source[$this->offset + 1] === '"')) {
-                $tokens[] = new CleanPegToken('REGEX', $this->readRegex(), $line, $column);
+                [$lexeme, $ignoreCase] = $this->readRegex();
+                $tokens[] = new CleanPegToken('REGEX', $lexeme, $line, $column, $ignoreCase);
                 continue;
             }
 
@@ -117,8 +119,10 @@ class CleanPegTokenizer
 
     /**
      * Reads a quoted string literal from the current cursor.
+     *
+     * @return array{0:string,1:?bool}
      */
-    private function readString(): string
+    private function readString(): array
     {
         $this->advance();
         $value = '';
@@ -140,7 +144,7 @@ class CleanPegTokenizer
             if ($char === '"') {
                 $this->advance();
 
-                return stripcslashes($value);
+                return [stripcslashes($value), $this->consumeIgnoreCaseSuffix()];
             }
 
             if ($char === "\n") {
@@ -156,8 +160,10 @@ class CleanPegTokenizer
 
     /**
      * Reads a regex literal from the current cursor.
+     *
+     * @return array{0:string,1:?bool}
      */
-    private function readRegex(): string
+    private function readRegex(): array
     {
         $this->advance();
         $quote = $this->source[$this->offset];
@@ -181,7 +187,7 @@ class CleanPegTokenizer
             if ($char === $quote) {
                 $this->advance();
 
-                return $value;
+                return [$value, $this->consumeIgnoreCaseSuffix()];
             }
 
             if ($char === "\n") {
@@ -193,6 +199,20 @@ class CleanPegTokenizer
         }
 
         throw new GrammarSyntaxError('CleanPeg', $this->line, $this->column, 'unclosed regex literal');
+    }
+
+    /**
+     * Consumes an optional trailing `i` suffix used for case-insensitive terminals.
+     */
+    private function consumeIgnoreCaseSuffix(): ?bool
+    {
+        if ($this->offset < $this->length && $this->source[$this->offset] === 'i') {
+            $this->advance();
+
+            return true;
+        }
+
+        return null;
     }
 
     /**

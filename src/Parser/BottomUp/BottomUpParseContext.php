@@ -40,7 +40,17 @@ class BottomUpParseContext extends ParseContext
      */
     public function matchRule(string $ruleName, int $offset): ?MatchResult
     {
-        $entry = $this->memo[$ruleName][$offset] ?? null;
+        $rule = $this->rules[$ruleName] ?? null;
+        if ($rule === null) {
+            $this->recordFailure($offset, sprintf('rule <%s>', $ruleName));
+
+            return null;
+        }
+
+        $ignoreCase = $this->effectiveRuleIgnoreCase($rule);
+        $ruleKey = $this->ruleMemoKey($ruleName, $ignoreCase);
+
+        $entry = $this->memo[$ruleKey][$offset] ?? null;
         if ($entry instanceof RuleMemoEntry) {
             if ($entry->isEvaluating()) {
                 $entry->markLeftRecursive();
@@ -53,15 +63,8 @@ class BottomUpParseContext extends ParseContext
             }
         }
 
-        $rule = $this->rules[$ruleName] ?? null;
-        if ($rule === null) {
-            $this->recordFailure($offset, sprintf('rule <%s>', $ruleName));
-
-            return null;
-        }
-
         $entry = new RuleMemoEntry();
-        $this->memo[$ruleName][$offset] = $entry;
+        $this->memo[$ruleKey][$offset] = $entry;
 
         try {
             $entry->beginEvaluation();
@@ -73,11 +76,11 @@ class BottomUpParseContext extends ParseContext
         $entry->setResult($result);
 
         if ($entry->hasLeftRecursion() && $result !== null) {
-            $result = $this->growLeftRecursiveRule($ruleName, $rule, $offset, $entry, $result);
+            $result = $this->growLeftRecursiveRule($ruleKey, $rule, $offset, $entry, $result);
             $entry->setResult($result);
         }
 
-        $this->rememberRuleResult($ruleName, $offset, $entry);
+        $this->rememberRuleResult($ruleKey, $offset, $entry);
 
         return $result;
     }
@@ -93,24 +96,24 @@ class BottomUpParseContext extends ParseContext
     /**
      * Resets the caches before rescanning a left-recursive rule.
      */
-    private function resetCachesForLeftRecursion(string $ruleName, int $offset, RuleMemoEntry $entry): void
+    private function resetCachesForLeftRecursion(string $ruleKey, int $offset, RuleMemoEntry $entry): void
     {
         $this->memo = [];
         $this->memoOrder = [];
         $this->expressionMemo = [];
         $this->expressionMemoOrder = [];
-        $this->memo[$ruleName][$offset] = $entry;
+        $this->memo[$ruleKey][$offset] = $entry;
     }
 
     /**
      * Re-evaluates a left-recursive rule until the match stops growing.
      */
-    private function growLeftRecursiveRule(string $ruleName, Rule $rule, int $offset, RuleMemoEntry $entry, MatchResult $result): MatchResult
+    private function growLeftRecursiveRule(string $ruleKey, Rule $rule, int $offset, RuleMemoEntry $entry, MatchResult $result): MatchResult
     {
         $bestResult = $result;
 
         while (true) {
-            $this->resetCachesForLeftRecursion($ruleName, $offset, $entry);
+            $this->resetCachesForLeftRecursion($ruleKey, $offset, $entry);
             $entry->setResult($bestResult);
             $entry->beginEvaluation();
             $this->leftRecursionRescanningDepth++;
