@@ -71,13 +71,6 @@ class PackratParseContext extends ParseContext
             return $entry->result();
         }
 
-        $rule = $this->rules[$ruleName] ?? null;
-        if ($rule === null) {
-            $this->recordFailure($offset, sprintf('rule <%s>', $ruleName));
-
-            return null;
-        }
-
         $entry = new RuleMemoEntry();
         $this->memo[$ruleKey][$offset] = $entry;
 
