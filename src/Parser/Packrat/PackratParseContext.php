@@ -18,6 +18,11 @@ use EmanueleCoppola\PHPeg\Result\MatchResult;
 class PackratParseContext extends ParseContext
 {
     /**
+     * @var array<string, array<int, true>>
+     */
+    private array $evaluatingRules = [];
+
+    /**
      * Initializes a new PackratParseContext instance.
      */
     public function __construct(
@@ -33,11 +38,8 @@ class PackratParseContext extends ParseContext
      */
     public function matchRule(string $ruleName, int $offset): ?MatchResult
     {
-        $rule = $this->grammar->rule($ruleName);
-        if ($rule === null) {
-            $this->recordFailure($offset, sprintf('rule <%s>', $ruleName));
-
-            return null;
+        if (!$this->memoizationEnabled) {
+            return $this->matchRuleWithoutMemoization($ruleName, $offset);
         }
 
         $entry = $this->memo[$ruleName][$offset] ?? null;
@@ -47,6 +49,13 @@ class PackratParseContext extends ParseContext
             }
 
             return $entry->result();
+        }
+
+        $rule = $this->rules[$ruleName] ?? null;
+        if ($rule === null) {
+            $this->recordFailure($offset, sprintf('rule <%s>', $ruleName));
+
+            return null;
         }
 
         $entry = new RuleMemoEntry();
@@ -61,15 +70,35 @@ class PackratParseContext extends ParseContext
 
         $entry->setResult($result);
 
-        if ($this->memoizationEnabled) {
-            $this->rememberRuleResult($ruleName, $offset, $entry);
-        } else {
-            unset($this->memo[$ruleName][$offset]);
-            if ($this->memo[$ruleName] === []) {
-                unset($this->memo[$ruleName]);
-            }
-        }
+        $this->rememberRuleResult($ruleName, $offset, $entry);
 
         return $result;
+    }
+
+    /**
+     * Matches a rule with only active-call tracking when memoization is disabled.
+     */
+    private function matchRuleWithoutMemoization(string $ruleName, int $offset): ?MatchResult
+    {
+        $rule = $this->rules[$ruleName] ?? null;
+        if ($rule === null) {
+            $this->recordFailure($offset, sprintf('rule <%s>', $ruleName));
+
+            return null;
+        }
+
+        if (isset($this->evaluatingRules[$ruleName][$offset])) {
+            throw new LeftRecursionException($ruleName, $offset);
+        }
+
+        $this->evaluatingRules[$ruleName][$offset] = true;
+        try {
+            return $rule->match($this, $offset);
+        } finally {
+            unset($this->evaluatingRules[$ruleName][$offset]);
+            if ($this->evaluatingRules[$ruleName] === []) {
+                unset($this->evaluatingRules[$ruleName]);
+            }
+        }
     }
 }

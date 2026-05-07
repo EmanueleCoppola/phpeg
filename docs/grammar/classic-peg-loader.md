@@ -89,9 +89,9 @@ Parentheses control precedence.
 
 Supported postfix quantifiers:
 
-- `?`
-- `*`
-- `+`
+- `?` means zero or one occurrence. The expression is optional.
+- `*` means zero or more occurrences. The expression may be absent or repeat.
+- `+` means one or more occurrences. The expression must appear at least once.
 
 Examples:
 
@@ -124,6 +124,17 @@ Predicates do not consume input.
 ```peg
 any <- .
 ```
+
+### Named Captures And Span Checks
+
+The classic PEG loader keeps the file syntax close to traditional PEG.
+It does not currently support CleanPeg-style named captures such as `tag@Name`, and it does not expose inline span or length comparators.
+
+Use one of these alternatives when you need those checks:
+
+- CleanPeg `name@Expression` for reusable text equality inside a rule
+- the fluent builder `capture()` method for the same named-capture behavior in PHP
+- the fluent builder `sameSpan()` and `differentSpan()` methods for same-offset and different-offset checks
 
 ### Lake Nodes
 
@@ -238,4 +249,4 @@ The classic PEG loader compiles into the same runtime model as the builder and C
 - Define `EOF <- !.` explicitly if you need a whole-input match.
 - Use `.` and predicates carefully when porting grammars from other PEG tools.
 - Prefer `parseDocument()` when the grammar is used for source-preserving editing rather than simple recognition.
-- For AST querying, mutation, and source-preserving printing details, see [`docs/ast/README.md`](../ast/README.md).
+- For AST querying, mutation, and source-preserving printing details, see [`docs/ast.md`](../ast.md).

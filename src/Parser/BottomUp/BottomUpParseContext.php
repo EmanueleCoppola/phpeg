@@ -40,13 +40,6 @@ class BottomUpParseContext extends ParseContext
      */
     public function matchRule(string $ruleName, int $offset): ?MatchResult
     {
-        $rule = $this->grammar->rule($ruleName);
-        if ($rule === null) {
-            $this->recordFailure($offset, sprintf('rule <%s>', $ruleName));
-
-            return null;
-        }
-
         $entry = $this->memo[$ruleName][$offset] ?? null;
         if ($entry instanceof RuleMemoEntry) {
             if ($entry->isEvaluating()) {
@@ -58,6 +51,13 @@ class BottomUpParseContext extends ParseContext
             if ($this->leftRecursionRescanningDepth === 0) {
                 return $entry->result();
             }
+        }
+
+        $rule = $this->rules[$ruleName] ?? null;
+        if ($rule === null) {
+            $this->recordFailure($offset, sprintf('rule <%s>', $ruleName));
+
+            return null;
         }
 
         $entry = new RuleMemoEntry();

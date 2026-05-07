@@ -54,11 +54,14 @@ If you do not call `grammar()`, the first rule you add becomes the start rule.
 - `oneOrMore(ExpressionInterface $expression): ExpressionInterface`
 - `optional(ExpressionInterface $expression): ExpressionInterface`
 - `ref(string $name): ExpressionInterface`
+- `capture(string $name, ExpressionInterface $expression): ExpressionInterface`
 - `any(): ExpressionInterface`
 - `eof(): ExpressionInterface`
 - `and(ExpressionInterface $expression): ExpressionInterface`
 - `not(ExpressionInterface $expression): ExpressionInterface`
 - `lake(?string $name = null, bool $capture = true): ExpressionInterface`
+- `sameSpan(ExpressionInterface $left, ExpressionInterface $right): ExpressionInterface`
+- `differentSpan(ExpressionInterface $left, ExpressionInterface $right): ExpressionInterface`
 
 ### Aliases
 
@@ -157,6 +160,29 @@ Creates a named rule reference.
 $g->ref('Expression');
 ```
 
+### `capture()`
+
+Creates a named capture expression.
+The first successful match stores the matched text under the capture name.
+Later uses of the same capture name inside the same rule match must produce the same text.
+
+```php
+$g->seq(
+    $g->literal('<'),
+    $g->capture('tag', $g->ref('TagName')),
+    $g->literal('>'),
+    $g->ref('Content'),
+    $g->literal('</'),
+    $g->capture('tag', $g->ref('TagName')),
+    $g->literal('>'),
+);
+```
+
+That accepts `<note>text</note>` and rejects `<note>text</div>`.
+
+When you write the same idea in CleanPeg, use `tag@TagName`.
+The classic PEG loader does not currently expose this syntax.
+
 ### `any()`
 
 Matches any single character.
@@ -185,6 +211,32 @@ $g->not($g->literal(')'));
 Predicates do not consume input. They only test whether the wrapped expression would match.
 
 Use them with any single `ExpressionInterface`, usually a literal, reference, or short sequence.
+
+### `sameSpan()` and `differentSpan()`
+
+Create span comparator expressions.
+Both operands are matched from the same starting offset; the comparator then checks where each operand ends.
+
+`sameSpan()` succeeds only when both operands end at the same offset:
+
+```php
+$g->sameSpan(
+    $g->choice($g->literal('ab'), $g->literal('abc')),
+    $g->literal('ab'),
+);
+```
+
+`differentSpan()` succeeds only when the operands end at different offsets:
+
+```php
+$g->differentSpan(
+    $g->choice($g->literal('abc'), $g->literal('ab')),
+    $g->literal('ab'),
+);
+```
+
+Use these when the grammar needs a deterministic length or boundary check without manually inspecting matched text after parsing.
+The CleanPeg and classic PEG loaders do not currently expose inline syntax for these comparator expressions.
 
 ### `lake()`
 
@@ -296,4 +348,4 @@ The builder compiles to the same runtime model as the loaders.
 - Use `regex()` when a token is easier to describe as a single anchored pattern.
 - Keep recursive references explicit with `ref()`.
 - Prefer `parseDocument()` when you need source-preserving editing or selector queries.
-- For AST querying, mutation, and source-preserving printing details, see [`docs/ast/README.md`](../ast/README.md).
+- For AST querying, mutation, and source-preserving printing details, see [`docs/ast.md`](../ast.md).

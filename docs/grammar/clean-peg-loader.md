@@ -96,9 +96,9 @@ Parentheses control precedence.
 
 Supported postfix quantifiers:
 
-- `?`
-- `*`
-- `+`
+- `?` means zero or one occurrence. The expression is optional.
+- `*` means zero or more occurrences. The expression may be absent or repeat.
+- `+` means one or more occurrences. The expression must appear at least once.
 
 Examples:
 
@@ -115,6 +115,26 @@ list = item*
 ```cleanpeg
 start = expression EOF
 ```
+
+### Named Captures
+
+Use `name@Expression` to capture the text matched by `Expression` under a reusable name.
+If the same capture name appears again within the same rule match, PHPeg requires the later match to produce the same text.
+
+```cleanpeg
+OpenTagName = r'[A-Za-z][A-Za-z0-9-]*'
+CloseTagName = r'[A-Za-z][A-Za-z0-9-]*'
+Element = "<" tag@OpenTagName ">" Content* "</" tag@CloseTagName ">"
+```
+
+That grammar accepts `<note>text</note>` and rejects `<note>text</div>` because both `tag@...` captures must resolve to the same value.
+
+Named captures are useful for paired delimiters, matching identifiers, and compact structural checks that should stay in the grammar instead of being handled after parsing.
+
+### Span And Length Checks
+
+CleanPeg does not currently expose inline span comparators.
+If you need a check based on two alternatives ending at the same or different offset, use the fluent builder methods `sameSpan()` and `differentSpan()`.
 
 ## Lake Nodes
 
@@ -242,4 +262,4 @@ CleanPeg compiles to the same runtime model as the builder.
 - Use `EOF` explicitly when you want full-input matching.
 - Disable whitespace skipping when token boundaries matter.
 - Keep inserted nodes explicit when you plan to print a modified document.
-- For AST querying, mutation, and source-preserving printing details, see [`docs/ast/README.md`](../ast/README.md).
+ - For AST querying, mutation, and source-preserving printing details, see [`docs/ast.md`](../ast.md).

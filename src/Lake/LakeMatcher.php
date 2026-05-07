@@ -20,6 +20,7 @@ class LakeMatcher
      */
     public static function match(ParseContext $context, LakeExpression $lake, int $offset): ?MatchResult
     {
+        $input = $context->input();
         $plan = $context->lakePlan();
         $sequences = $plan->stopSequencesFor($lake);
         if ($sequences === []) {
@@ -31,7 +32,7 @@ class LakeMatcher
         $waterProfile = $lake->name() === null ? null : $context->grammar()->lakeProfile($lake->name());
         $waterRules = $waterProfile === null ? $context->grammar()->waterRules() : [];
         $cursor = $offset;
-        $length = $context->input()->length();
+        $length = $input->length();
         $children = [];
 
         while ($cursor <= $length) {

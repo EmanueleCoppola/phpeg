@@ -95,6 +95,11 @@ abstract class ParseContext
     protected readonly LakePlan $lakePlan;
 
     /**
+     * @var array<string, Rule>
+     */
+    protected readonly array $rules;
+
+    /**
      * @var bool
      */
     protected readonly bool $grammarHasStatefulExpressions;
@@ -117,6 +122,7 @@ abstract class ParseContext
         $this->reuseEmptyMatches = $options->reuseEmptyMatches();
         $this->maxCacheEntries = $options->maxCacheEntries();
         $this->lakePlan = LakePlanCache::forGrammar($grammar);
+        $this->rules = $grammar->rules();
         $this->grammarHasStatefulExpressions = $grammar->hasStatefulExpressions();
     }
 
@@ -424,9 +430,17 @@ abstract class ParseContext
      */
     protected function matchExpressionInternal(ExpressionInterface $expression, int $offset): ?MatchResult
     {
+        if (!$this->memoizationEnabled) {
+            if ($expression instanceof LakeExpression && $this->isLakeBanned($expression, $offset)) {
+                return null;
+            }
+
+            return $this->matchExpressionDirect($expression, $offset);
+        }
+
+        $isRescanning = $this->isRescanningLeftRecursiveRule();
         $cacheKey = null;
-        $shouldCache = $this->memoizationEnabled
-            && !$this->isRescanningLeftRecursiveRule()
+        $shouldCache = !$isRescanning
             && (!$this->grammarHasStatefulExpressions || !$this->isStatefulExpression($expression));
         if ($shouldCache) {
             $cacheKey = $this->expressionMemoKey($expression, $offset);
@@ -445,7 +459,7 @@ abstract class ParseContext
             return null;
         }
 
-        if ($this->isRescanningLeftRecursiveRule()) {
+        if ($isRescanning) {
             return $this->matchExpressionDirect($expression, $offset);
         }
 
@@ -498,6 +512,10 @@ abstract class ParseContext
      */
     protected function expressionMemoKey(ExpressionInterface $expression, int $offset): string
     {
+        if ($this->bannedLakeIdStack === []) {
+            return spl_object_id($expression) . '|' . $offset;
+        }
+
         return $this->bannedLakeSignature() . '|' . spl_object_id($expression) . '|' . $offset;
     }
 
