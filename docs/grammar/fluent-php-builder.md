@@ -182,8 +182,8 @@ $g->seq(
     $g->literal('>'),
     $g->ref('Content'),
     $g->literal('</'),
-    $g->capture('tag', $g->ref('TagName')),
-    $g->literal('>'),
+$g->capture('tag', $g->ref('TagName')),
+$g->literal('>'),
 );
 ```
 
