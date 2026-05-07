@@ -10,7 +10,7 @@ use EmanueleCoppola\PHPeg\App\Benchmarks\BenchmarkOptions;
 use LaravelZero\Framework\Commands\Command;
 
 /**
- * Runs the PHPPeg benchmark suite through Laravel Zero.
+ * Runs the PHPeg benchmark suite through Laravel Zero.
  */
 class BenchmarkCommand extends Command
 {

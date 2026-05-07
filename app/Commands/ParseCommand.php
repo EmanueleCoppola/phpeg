@@ -35,7 +35,7 @@ class ParseCommand extends Command
                             {--grammar-format=auto : Grammar format: auto, peg, or cleanpeg}
                             {--start-rule= : Override the grammar start rule}
                             {--query= : AST selector used to filter the output nodes}
-                            {--json-style=full : JSON style: full or simple}';
+                            {--json-style=simple : JSON style: full or simple}';
 
     /**
      * The command description.

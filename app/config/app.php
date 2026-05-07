@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 return [
-    'name' => 'PHPPeg',
+    'name' => 'PHPeg',
     'env' => env('APP_ENV', 'local'),
     'debug' => (bool) env('APP_DEBUG', false),
     'url' => env('APP_URL', 'https://example.com'),
