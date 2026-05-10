@@ -1,108 +1,138 @@
-# Benchmarks
+# PHPeg
 
-This directory contains a lightweight benchmark suite for PHPeg. It measures parser time and memory on deterministic, generated inputs so you can compare performance before and after parser changes without introducing large static fixtures.
+[![Tests](https://img.shields.io/github/actions/workflow/status/EmanueleCoppola/phpeg/tests.yml?branch=main&label=tests)](https://github.com/EmanueleCoppola/phpeg/actions/workflows/tests.yml)
+[![Latest Version](https://img.shields.io/packagist/v/emanuelecoppola/phpeg.svg)](https://packagist.org/packages/emanuelecoppola/phpeg)
+[![Total Downloads](https://img.shields.io/packagist/dt/emanuelecoppola/phpeg.svg)](https://packagist.org/packages/emanuelecoppola/phpeg)
+[![License](https://img.shields.io/packagist/l/emanuelecoppola/phpeg.svg)](LICENSE)
 
-## Running Benchmarks
+PHPeg is a modern PEG parsing library for PHP.
 
-The main entrypoint is the Laravel Zero binary:
+It gives you:
 
-```bash
-php bin/phpeg benchmark
-```
+- a fluent PHP grammar builder
+- two grammar loaders: CleanPeg for compact grammars with built-in conveniences, Classic PEG for explicit traditional PEG syntax
+- AST querying, mutation, and source-preserving printing
+- configurable parsing trade-offs for speed, memory, and diagnostics
+- left-recursive grammars are detected and handled automatically
 
-If the binary is installed or made executable, you can also run:
+If you want to parse PHP-native grammars and still get serious AST tooling and source-preserving editing, this library is built for that.
 
-```bash
-./bin/phpeg benchmark
-```
-
-Run it through Composer:
-
-```bash
-composer benchmark
-```
-
-Supported options:
+## Installation
 
 ```bash
-php bin/phpeg benchmark --iterations=5
-php bin/phpeg benchmark --scale=small
-php bin/phpeg benchmark --scale=medium
-php bin/phpeg benchmark --scale=large
-php bin/phpeg benchmark --filter=arithmetic
-php bin/phpeg benchmark --mode=default --mode=speed
-php bin/phpeg benchmark --json
+composer require emanuelecoppola/phpeg
 ```
 
-`--scale` controls generated input size:
+## Quick Start
 
-- `small`: quick local smoke run
-- `medium`: default baseline run
-- `large`: heavier stress run
+This example parses a tiny `env`-style line and then replaces its value in place.
 
-`--iterations` repeats each benchmark and reports total, average, minimum, and maximum parse time. Memory metrics are reported as average memory before parsing, average memory after parsing, average delta, and maximum observed peak memory.
+```php
+<?php
 
-`--filter` matches either the benchmark name or slug and lets you focus on a single case such as `arithmetic`, `json`, `recursion`, or `backtracking`.
+declare(strict_types=1);
 
-`--mode` selects one or more explicit flag combinations. When omitted, the suite runs:
+use EmanueleCoppola\PHPeg\Ast\AstNodeFactory;
+use EmanueleCoppola\PHPeg\Builder\GrammarBuilder;
 
-- `default`: memoization with lazy node text and full error tracking
-- `speed`: default plus lighter successful-parse error tracking and empty-match reuse
-- `memory`: memoization disabled, with lazy node text still enabled
+require __DIR__ . '/vendor/autoload.php';
 
-`--json` prints machine-readable output to stdout for CI or scripting. Historical files are still written to disk.
+$g = GrammarBuilder::create();
 
-## Benchmark Cases
+$grammar = $g->grammar('Start')
+    ->rule('Word', $g->oneOrMore($g->charClass('[A-Z_]')))
+    ->rule('Value', $g->oneOrMore($g->charClass('[a-z]')))
+    ->rule('Assignment', $g->seq(
+        $g->ref('Word'),
+        $g->literal('='),
+        $g->ref('Value'),
+    ))
+    ->rule('Start', $g->seq($g->ref('Assignment'), $g->eof()))
+    ->build();
 
-The suite currently includes eight benchmark cases:
+$input = 'APP_ENV=local';
+$result = $grammar->parse($input);
 
-- `Large arithmetic expression`: long precedence-sensitive expressions with nested parentheses, integers, and decimals.
-- `Deep nested recursion`: repeated `f(f(...value...))` style nesting to stress recursive descent depth and stack behavior.
-- `Large JSON-like document`: realistic nested objects and arrays with strings, numbers, booleans, and null values.
-- `Backtracking-heavy grammar`: many long alternatives sharing the same prefix to stress ordered-choice backtracking.
-- `Named capture and span checks`: a compact invented markup format that exercises named captures on tag names and span equality on fixed-width event codes.
-- `Island parsing with lakes`: a recursive island grammar over a mixed config-like document, using native lake nodes for water capture.
-- `Island parsing with manual water`: the same mixed document shape implemented with an explicit manual water rule for comparison.
-- `Island parsing with annotated water`: the same mixed document shape with `@water` marking reusable water rules.
+if (!$result->isSuccess()) {
+    echo $result->error()?->message() . PHP_EOL;
+    exit(1);
+}
 
-Each benchmark defines its own grammar, generates input at runtime, and validates that parsing actually succeeds on the generated input.
+echo $result->node()?->name() . PHP_EOL;
+echo $result->matchedText() . PHP_EOL;
 
-Benchmark case discovery is configured in [app/config/benchmarks.php](/Users/manu/Projects/EmanueleCoppola/phpeg/app/config/benchmarks.php). Benchmark implementation classes live under [app/Benchmarks](/Users/manu/Projects/EmanueleCoppola/phpeg/app/Benchmarks) and [app/Benchmarks/Cases](/Users/manu/Projects/EmanueleCoppola/phpeg/app/Benchmarks/Cases).
+$document = $grammar->parseDocument($input);
+$factory = new AstNodeFactory();
 
-## Historical Results
+$document->query('Value')->first()?->replaceWith(
+    $factory->token('Value', 'production')
+);
 
-Every run writes:
-
-- a timestamped JSON snapshot under `benchmarks/results/`
-- an append-only CSV file at `benchmarks/results/history.csv`
-
-The JSON file stores full run metadata including timestamp, git commit and branch when detectable, dirty/clean status, PHP version, platform, scale, iterations, and each benchmark result. The CSV file appends one row per benchmark case per run for easy spreadsheet or shell-based comparison.
-
-## Comparing Runs
-
-Run the comparison command after at least two benchmark runs:
-
-```bash
-php bin/phpeg benchmark:compare
-composer benchmark:compare
+echo $document->print();
 ```
 
-The comparison command reads the two most recent JSON result files and shows the previous and current average time and peak memory for each benchmark and parser mode, along with the percentage change.
+The output is:
 
-When the repository's `Benchmark PR` workflow runs on a pull request, it benchmarks the base branch and the PR head back to back, then posts the comparison report as a sticky PR comment and as a job summary.
+```text
+Start
+APP_ENV=local
+APP_ENV=production
+```
 
-## Interpreting Regressions
+### Parser options
 
-Use `medium` runs as the default baseline unless you specifically need a quicker smoke check or a larger stress run.
+Parser behavior is configured through [`ParserOptions`](src/Parser/ParserOptions.php).
+The available options and recommended combinations are documented in [`docs/options.md`](docs/options.md).
 
-Time regressions:
+## Documentation
 
-- higher average time means parsing got slower
-- lower average time means parsing improved
+- Documentation index: [`docs/README.md`](docs/README.md)
+- Grammar reference: [`docs/grammar/README.md`](docs/grammar/README.md)
+- Fluent PHP builder: [`docs/grammar/fluent-php-builder.md`](docs/grammar/fluent-php-builder.md)
+- CleanPeg loader: [`docs/grammar/clean-peg-loader.md`](docs/grammar/clean-peg-loader.md)
+- Classic PEG loader: [`docs/grammar/classic-peg-loader.md`](docs/grammar/classic-peg-loader.md)
+- Lake symbols: [`docs/lake-symbols.md`](docs/lake-symbols.md)
+- AST overview: [`docs/ast.md`](docs/ast.md)
+- Parser options: [`docs/options.md`](docs/options.md)
+- CLI: [`docs/cli.md`](docs/cli.md)
+- Examples catalog: [`docs/examples.md`](docs/examples.md)
+- Troubleshooting: [`docs/troubleshooting.md`](docs/troubleshooting.md)
+- Benchmarks: [`benchmarks/README.md`](benchmarks/README.md)
 
-Memory regressions:
+## Examples
 
-- higher peak memory means the parser retained or allocated more memory during parsing
-- higher memory delta means per-iteration memory usage grew more between benchmark start and finish
+The repository includes end-to-end examples for:
 
-Treat small changes carefully. Local machine noise, different PHP builds, and unrelated background work can move timings slightly, so compare multiple runs when a regression is marginal.
+- calculator parsing with CleanPeg
+- JSON parsing
+- nginx config editing
+- dotenv config editing
+- tiny-markup parsing with named captures in CleanPeg
+- recursive language AST editing
+- Bixby-style language parsing
+- access-policy parsing
+
+Useful entry points:
+
+- [`docs/examples.md`](docs/examples.md)
+- [`examples/calculator-cleanpeg/calculator-cleanpeg.php`](examples/calculator-cleanpeg/calculator-cleanpeg.php)
+- [`examples/json-parser/json-parser.php`](examples/json-parser/json-parser.php)
+- [`examples/nginx-config-edit/nginx-config-edit.php`](examples/nginx-config-edit/nginx-config-edit.php)
+- [`examples/dotenv-config-edit/dotenv-config-edit.php`](examples/dotenv-config-edit/dotenv-config-edit.php)
+- [`examples/tiny-markup-parser/tiny-markup-parser.php`](examples/tiny-markup-parser/tiny-markup-parser.php)
+- [`examples/recursive-language/recursive_language_builder.php`](examples/recursive-language/recursive_language_builder.php)
+- [`examples/access-policy-parser/access-policy-parser.php`](examples/access-policy-parser/access-policy-parser.php)
+
+## References
+
+This repository implements lake symbols for island parsing, and its grammar tooling is also inspired by Arpeggio.
+
+Okuda, K., Chiba, S.  
+"Lake Symbols for Island Parsing"  
+https://arxiv.org/abs/2010.16306
+
+The paper is included in this repository as [docs/papers/lake-symbols-for-island-parsing.pdf](docs/papers/lake-symbols-for-island-parsing.pdf) for reference.
+
+Dejanović I., Milosavljević G., Vaderna R.  
+"Arpeggio: A flexible PEG parser for Python"  
+https://doi.org/10.1016/j.knosys.2015.12.004

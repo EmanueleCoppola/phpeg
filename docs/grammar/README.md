@@ -43,4 +43,4 @@ All three styles compile to the same runtime model:
 The style-specific pages below focus on syntax. For AST querying, mutation, and source-preserving printing, see [AST](../ast.md).
 
 Lake symbols let a grammar describe the interesting islands inside a larger document, while water symbols mark reusable background rules such as whitespace, comments, or strings.
-If you want to read more about lake and water symbols, see [docs/lake-symbols.md](../lake-symbols.md).
+If you want to read more about lake and water symbols, see [Lake symbols](../lake-symbols.md).

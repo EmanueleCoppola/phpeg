@@ -41,6 +41,8 @@ PHPeg implements lake nodes as an opt-in grammar expression integrated with:
 
 The implementation adapts the concept for PHP and keeps it consistent with the rest of the library.
 
+For AST behavior and source-preserving editing details, see [AST](ast.md).
+
 ## Lake Symbol And Water
 
 In this repository, the lake symbol is the wildcard that stands for "whatever water can be consumed here until the grammar reaches a safe continuation".

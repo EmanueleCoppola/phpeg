@@ -78,4 +78,4 @@ Use this when you want node text to be materialized immediately and you are insp
 ## Related Pages
 
 - [Quick start](../README.md#quick-start)
-- [AST editing](ast.md)
+- [AST mutation](ast/mutation.md)
