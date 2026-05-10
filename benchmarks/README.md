@@ -1,6 +1,6 @@
 # Benchmarks
 
-This directory contains a lightweight benchmark suite for PHPPeg. It measures parser time and memory on deterministic, generated inputs so you can compare performance before and after parser changes without introducing large static fixtures.
+This directory contains a lightweight benchmark suite for PHPeg. It measures parser time and memory on deterministic, generated inputs so you can compare performance before and after parser changes without introducing large static fixtures.
 
 ## Running Benchmarks
 

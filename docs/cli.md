@@ -1,26 +1,16 @@
 # CLI
 
-PHPeg ships with a command-line parser that loads `.peg` or `.cleanpeg` grammars and parses input files from the terminal.
+PHPPeg ships with a command-line parser for parsing files with `.peg` or `.cleanpeg` grammars.
 
 The CLI can:
 
 - load a grammar file
 - parse an input file
 - export the AST as JSON
+- export a parser trace as JSON
+- inspect a parser trace interactively in the terminal
 - filter exported AST nodes with a selector
 - optionally export the parse tree as Graphviz DOT
-
-## Command
-
-```bash
-php bin/phpeg parse --grammar=path/to/grammar.cleanpeg --input=path/to/input.txt
-```
-
-Short aliases are available for input and output paths:
-
-```bash
-php bin/phpeg parse --grammar=path/to/grammar.cleanpeg -i path/to/input.txt -o result.json
-```
 
 ## Basic Usage
 
@@ -36,49 +26,31 @@ By default, the command writes JSON to stdout:
 php bin/phpeg parse --grammar=grammar.cleanpeg --input=input.txt > result.json
 ```
 
-Write JSON directly to a file with `--output` or `-o`:
+You can also write JSON directly to a file:
 
 ```bash
 php bin/phpeg parse --grammar=grammar.cleanpeg --input=input.txt --output=result.json
 ```
 
-Recommended form for quick inspection:
+The short `-i` and `-o` aliases are also available:
 
 ```bash
-php bin/phpeg parse \
-  --grammar=path/to/grammar.cleanpeg \
-  --input=path/to/input.txt \
-  --output=result.json
+php bin/phpeg parse --grammar=grammar.cleanpeg -i input.txt -o result.json
 ```
 
-## Options
+Export a parser trace for terminal debugging:
 
-| Option | Required | Default | Description |
-|---|---:|---|---|
-| `--grammar=PATH` | Yes | - | Grammar file to load. Supports `.peg` and `.cleanpeg`. |
-| `-i, --input=PATH` | Yes | - | Input file to parse. |
-| `--grammar-format=FORMAT` | No | `auto` | Grammar format. One of `auto`, `cleanpeg`, `peg`. |
-| `--start-rule=RULE` | No | grammar default | Start rule used for parsing. |
-| `--query=SELECTOR` | No | root node | Filters exported AST nodes using the selector syntax. |
-| `--json-style=STYLE` | No | `simple` | JSON output style. One of `full`, `simple`. |
-| `-o, --output=PATH` | No | stdout | Writes JSON output to a file. |
-| `--tree-format=FORMAT` | No | - | Parse tree export format. Currently only `dot` is supported. |
-| `--tree-output=PATH` | Required with `--tree-format` | - | Path where the parse tree DOT file is written. |
+```bash
+php bin/phpeg trace --grammar=grammar.cleanpeg --input=input.txt --output=trace.json
+```
 
-## Required Input
+Inspect the trace interactively:
 
-The `parse` command requires two paths:
+```bash
+php bin/phpeg step --trace=trace.json
+```
 
-- `--grammar=PATH`
-- `-i, --input=PATH`
-
-Both paths may be relative or absolute.
-
-Relative paths are resolved from the current working directory.
-
-If either flag is missing, the command fails with a CLI error.
-
-## Examples
+## Common Examples
 
 ### Parse with a selector
 
@@ -88,8 +60,6 @@ php bin/phpeg parse \
   --input=examples/nginx-config-edit/nginx-config.conf \
   --query='Block[name="server"]'
 ```
-
-When a query is provided, the JSON output contains the matched nodes in the `matches` array.
 
 ### Export compact JSON
 
@@ -139,9 +109,61 @@ Render the DOT file with Graphviz:
 dot -Tsvg debug/output-tree.dot -o debug/output-tree.svg
 ```
 
+## Options
+
+| Option | Required | Default | Description |
+|---|---:|---|---|
+| `--grammar=PATH` | Yes | - | Grammar file to load. Supports `.peg` and `.cleanpeg`. |
+| `-i, --input=PATH` | Yes | - | Input file to parse. |
+| `--grammar-format=FORMAT` | No | `auto` | Grammar format. One of `auto`, `cleanpeg`, `peg`. |
+| `--start-rule=RULE` | No | grammar default | Start rule used for parsing. |
+| `--query=SELECTOR` | No | root node | Filters exported AST nodes using the selector syntax. |
+| `--json-style=STYLE` | No | `full` | JSON output style. One of `full`, `simple`. |
+| `-o, --output=PATH` | No | stdout | Writes JSON output to a file. |
+| `--tree-format=FORMAT` | No | - | Parse tree export format. Currently only `dot` is supported. |
+| `--tree-output=PATH` | Required with `--tree-format` | - | Path where the parse tree DOT file is written. |
+
+## Trace Commands
+
+### `trace`
+
+`trace` accepts the same grammar and input flags as `parse`, but writes a JSON trace document instead of AST output.
+
+| Option | Required | Default | Description |
+|---|---:|---|---|
+| `--grammar=PATH` | Yes | - | Grammar file to load. Supports `.peg` and `.cleanpeg`. |
+| `-i, --input=PATH` | Yes | - | Input file to parse. |
+| `--grammar-format=FORMAT` | No | `auto` | Grammar format. One of `auto`, `cleanpeg`, `peg`. |
+| `--start-rule=RULE` | No | grammar default | Start rule used for parsing. |
+| `-o, --output=PATH` | No | stdout | Writes the trace JSON to a file. |
+
+### `step`
+
+`step` reads a trace JSON file and renders the grammar, input, and current step in a terminal view.
+By default it shows the original grammar source. Pass `--grammar-view=tree` to switch back to the expanded node tree.
+
+| Option | Required | Default | Description |
+|---|---:|---|---|
+| `--trace=PATH` | Yes | - | Path to a trace JSON file generated by `trace`. |
+| `--step=INDEX` | No | `0` | Initial step index to display. |
+| `--grammar-view=MODE` | No | `source` | Grammar view mode. One of `source`, `tree`. |
+
+## Required Input
+
+The command requires two paths:
+
+- `--grammar=PATH`
+- `-i, --input=PATH`
+
+Both paths may be relative or absolute.
+
+Relative paths are resolved from the current working directory.
+
+If either flag is missing, the command fails with a CLI error.
+
 ## Grammar Format
 
-By default, PHPeg detects the grammar format from the grammar file extension.
+By default, PHPPeg detects the grammar format from the grammar file extension.
 
 ```bash
 php bin/phpeg parse --grammar=grammar.cleanpeg --input=input.txt
@@ -167,7 +189,7 @@ When `cleanpeg` or `peg` is provided explicitly, file extension inference is ski
 
 ## Querying the AST
 
-`--query=SELECTOR` filters exported AST nodes using the same selector syntax as `ParsedDocument::query()`.
+`--query=SELECTOR` filters the exported AST nodes using the same selector syntax as `ParsedDocument::query()`.
 
 Examples:
 
@@ -179,9 +201,7 @@ Examples:
 
 If `--query` is omitted, the parsed root node is exported.
 
-If `--query` is provided, the matched nodes are exported in the `matches` array.
-
-See [AST](ast.md) for the full selector syntax and the rest of the AST model.
+See [AST query](query.md) for the full selector syntax.
 
 ## JSON Output
 
@@ -197,9 +217,9 @@ Use `--output` or `-o` to write JSON to a file:
 php bin/phpeg parse --grammar=grammar.cleanpeg --input=input.txt --output=result.json
 ```
 
-The output file extension is ignored. The CLI always writes JSON to `--output`.
+The output file extension does not affect the format. The file always contains JSON.
 
-For example, all of these commands write JSON:
+For example, all of these commands still write JSON:
 
 ```bash
 php bin/phpeg parse --grammar=grammar.cleanpeg --input=input.txt --output=result.json
@@ -209,16 +229,12 @@ php bin/phpeg parse --grammar=grammar.cleanpeg --input=input.txt --output=result
 
 ## JSON Styles
 
-PHPeg supports two JSON output styles:
+PHPPeg supports two JSON output styles:
 
 | Style | Description |
 |---|---|
 | `full` | Detailed output with metadata, offsets, state flags, attributes, semantic fields, and children. |
 | `simple` | Compact recursive tree with only `name`, `text`, `lake`, and `children`. |
-
-The default style is `simple`. Pass `--json-style=full` when you need metadata, offsets, attributes, or semantic fields.
-
-The `lake` field is `true` for nodes matched by lake/island parsing rules.
 
 ### `full`
 
@@ -370,9 +386,7 @@ This writes:
 
 ## Errors
 
-The CLI only writes JSON on successful parses.
-
-CLI errors and parse errors are rendered as clean console errors, not JSON.
+Parse and CLI errors are rendered as clean console errors, not JSON.
 
 The command returns a failure response when:
 
@@ -397,4 +411,6 @@ Missing required flags and invalid grammar settings are shown with a short `ERRO
 
 ## Related Docs
 
-- [AST](ast.md)
+- [AST query](query.md)
+- [AST reference](ast/README.md)
+- [Source-preserving printing](source-preserving-printing.md)
