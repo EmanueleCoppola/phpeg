@@ -3,7 +3,7 @@
 [![Tests](https://img.shields.io/github/actions/workflow/status/EmanueleCoppola/phpeg/tests.yml?branch=main&label=tests)](https://github.com/EmanueleCoppola/phpeg/actions/workflows/tests.yml)
 [![Latest Version](https://img.shields.io/packagist/v/emanuelecoppola/phpeg.svg)](https://packagist.org/packages/emanuelecoppola/phpeg)
 [![Total Downloads](https://img.shields.io/packagist/dt/emanuelecoppola/phpeg.svg)](https://packagist.org/packages/emanuelecoppola/phpeg)
-[![License](https://img.shields.io/packagist/l/emanuelecoppola/phpeg.svg)](LICENSE)
+[![License](https://img.shields.io/packagist/l/emanuelecoppola/phpeg.svg)](./LICENSE)
 
 PHPeg is a modern PEG parsing library for PHP.
 
