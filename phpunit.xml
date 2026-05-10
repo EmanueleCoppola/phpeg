@@ -3,7 +3,7 @@
          colors="true"
          cacheDirectory=".phpunit.cache">
     <testsuites>
-        <testsuite name="PHPPeg">
+        <testsuite name="PHPeg">
             <directory>tests</directory>
         </testsuite>
     </testsuites>

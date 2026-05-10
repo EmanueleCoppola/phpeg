@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace EmanueleCoppola\PHPeg\Tests\Parser;
 
 use EmanueleCoppola\PHPeg\Builder\GrammarBuilder;
+use EmanueleCoppola\PHPeg\App\Trace\ParserTraceRecorder;
 use EmanueleCoppola\PHPeg\Parser\ParserOptions;
 use PHPUnit\Framework\TestCase;
 
@@ -53,6 +54,23 @@ class ParserTest extends TestCase
 
         self::assertSame(['"a"', '"b"'], $detailed->error()?->expected());
         self::assertCount(1, $optimized->error()?->expected() ?? []);
+    }
+
+    /**
+     * Verifies tracing stays opt-in and does not affect parse results.
+     */
+    public function testSupportsAnOptionalTraceRecorder(): void
+    {
+        $grammar = $this->simpleGrammar();
+        $recorder = new ParserTraceRecorder();
+
+        $withoutTrace = $grammar->parse('a');
+        $withTrace = $grammar->parse('a', traceRecorder: $recorder);
+
+        self::assertTrue($withoutTrace->isSuccess());
+        self::assertTrue($withTrace->isSuccess());
+        self::assertSame($withoutTrace->matchedText(), $withTrace->matchedText());
+        self::assertGreaterThan(0, count($recorder->steps()));
     }
 
     /**
