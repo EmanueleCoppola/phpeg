@@ -1,0 +1,4 @@
+
+Start = Expression EOF
+Expression = Number ("+" Number)*
+Number = r'\d+(?:\.\d+)?'
