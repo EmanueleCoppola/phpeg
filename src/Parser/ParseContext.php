@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace EmanueleCoppola\PHPeg\Parser;
 
+use EmanueleCoppola\PHPeg\App\Trace\ParserTraceRecorder;
 use EmanueleCoppola\PHPeg\Error\ParseError;
 use EmanueleCoppola\PHPeg\Expression\ExpressionInterface;
 use EmanueleCoppola\PHPeg\Expression\LakeExpression;
@@ -115,12 +116,18 @@ abstract class ParseContext
     protected array $caseSensitivityFrames = [];
 
     /**
+     * @var ?ParserTraceRecorder
+     */
+    protected readonly ?ParserTraceRecorder $traceRecorder;
+
+    /**
      * Initializes a new ParseContext instance.
      */
     public function __construct(
         protected readonly Grammar $grammar,
         protected readonly InputBuffer $input,
         protected readonly ParserOptions $options = new ParserOptions(),
+        ?ParserTraceRecorder $traceRecorder = null,
     ) {
         $this->memoizationEnabled = $options->memoizationEnabled();
         $this->optimizeErrors = $options->optimizeErrors();
@@ -129,6 +136,7 @@ abstract class ParseContext
         $this->lakePlan = LakePlanCache::forGrammar($grammar);
         $this->rules = $grammar->rules();
         $this->grammarHasStatefulExpressions = $grammar->hasStatefulExpressions();
+        $this->traceRecorder = $traceRecorder;
     }
 
     /**
@@ -461,12 +469,24 @@ abstract class ParseContext
      */
     protected function matchExpressionInternal(ExpressionInterface $expression, int $offset): ?MatchResult
     {
+        $frameId = $this->traceEnter('expression', [
+            'id' => 'expr:' . spl_object_id($expression),
+            'label' => $expression->describe(),
+            'description' => $expression->describe(),
+            'kind' => $expression::class,
+        ], $offset);
+
         if (!$this->memoizationEnabled) {
             if ($expression instanceof LakeExpression && $this->isLakeBanned($expression, $offset)) {
+                $this->traceExit($frameId, false, null);
+
                 return null;
             }
 
-            return $this->matchExpressionDirect($expression, $offset);
+            $result = $this->matchExpressionDirect($expression, $offset);
+            $this->traceExit($frameId, $result !== null, $result);
+
+            return $result;
         }
 
         $isRescanning = $this->isRescanningLeftRecursiveRule();
@@ -476,7 +496,10 @@ abstract class ParseContext
         if ($shouldCache) {
             $cacheKey = $this->expressionMemoKey($expression, $offset);
             if (array_key_exists($cacheKey, $this->expressionMemo)) {
-                return $this->expressionMemo[$cacheKey];
+                $result = $this->expressionMemo[$cacheKey];
+                $this->traceExit($frameId, $result !== null, $result);
+
+                return $result;
             }
         }
 
@@ -487,21 +510,30 @@ abstract class ParseContext
                 $this->trimExpressionMemo();
             }
 
+            $this->traceExit($frameId, false, null);
+
             return null;
         }
 
-        if ($isRescanning) {
-            return $this->matchExpressionDirect($expression, $offset);
+        if ($this->isRescanningLeftRecursiveRule()) {
+            $result = $this->matchExpressionDirect($expression, $offset);
+            $this->traceExit($frameId, $result !== null, $result);
+
+            return $result;
         }
 
         if (!$shouldCache) {
-            return $this->matchExpressionDirect($expression, $offset);
+            $result = $this->matchExpressionDirect($expression, $offset);
+            $this->traceExit($frameId, $result !== null, $result);
+
+            return $result;
         }
 
         $result = $this->matchExpressionDirect($expression, $offset);
         $this->expressionMemo[$cacheKey] = $result;
         $this->expressionMemoOrder[] = $cacheKey;
         $this->trimExpressionMemo();
+        $this->traceExit($frameId, $result !== null, $result);
 
         return $result;
     }
@@ -596,5 +628,31 @@ abstract class ParseContext
     protected function isRescanningLeftRecursiveRule(): bool
     {
         return false;
+    }
+
+    /**
+     * Records the entry of a traceable scope.
+     *
+     * @param array<string, mixed> $target
+     */
+    public function traceEnter(string $scope, array $target, int $offset): ?int
+    {
+        if ($this->traceRecorder === null) {
+            return null;
+        }
+
+        return $this->traceRecorder->enter($scope, $target, $offset, $this->failureSuppressionDepth > 0);
+    }
+
+    /**
+     * Records the exit of a traceable scope.
+     */
+    public function traceExit(?int $frameId, bool $success, ?MatchResult $result): void
+    {
+        if ($frameId === null || $this->traceRecorder === null) {
+            return;
+        }
+
+        $this->traceRecorder->exit($frameId, $success, $result);
     }
 }

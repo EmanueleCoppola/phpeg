@@ -78,7 +78,14 @@ class Rule
      */
     public function match(ParseContext $context, int $offset): ?MatchResult
     {
-        return $context->withCaseSensitivity($this->ignoreCase, function () use ($context, $offset): ?MatchResult {
+        $frameId = $context->traceEnter('rule', [
+            'id' => 'rule:' . $this->name,
+            'name' => $this->name,
+            'label' => $this->name,
+            'description' => sprintf('rule <%s>', $this->name),
+        ], $offset);
+
+        return $context->withCaseSensitivity($this->ignoreCase, function () use ($context, $offset, $frameId): ?MatchResult {
             if ($this->stateful) {
                 $context->pushBindingFrame();
                 try {
@@ -88,6 +95,8 @@ class Rule
                 }
 
                 if ($result === null) {
+                    $context->traceExit($frameId, false, null);
+
                     return null;
                 }
 
@@ -101,11 +110,16 @@ class Rule
                     sourceBuffer: $context->options()->lazyNodeText() ? $context->input() : null,
                 );
 
-                return new MatchResult($offset, $result->endOffset(), [$node]);
+                $matchResult = new MatchResult($offset, $result->endOffset(), [$node]);
+                $context->traceExit($frameId, true, $matchResult);
+
+                return $matchResult;
             }
 
             $result = $this->expression->match($context, $offset);
             if ($result === null) {
+                $context->traceExit($frameId, false, null);
+
                 return null;
             }
 
@@ -119,7 +133,10 @@ class Rule
                 sourceBuffer: $context->options()->lazyNodeText() ? $context->input() : null,
             );
 
-            return new MatchResult($offset, $result->endOffset(), [$node]);
+            $matchResult = new MatchResult($offset, $result->endOffset(), [$node]);
+            $context->traceExit($frameId, true, $matchResult);
+
+            return $matchResult;
         });
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace EmanueleCoppola\PHPeg\Grammar;
 
 use RuntimeException;
+use EmanueleCoppola\PHPeg\App\Trace\ParserTraceRecorder;
 use EmanueleCoppola\PHPeg\Document\ParsedDocument;
 use EmanueleCoppola\PHPeg\Expression\ExpressionInterface;
 use EmanueleCoppola\PHPeg\Parser\Parser;
@@ -125,19 +126,19 @@ class Grammar
     /**
      * Parses input using the configured grammar.
      */
-    public function parse(string $input, ?string $startRule = null, ?ParserOptions $options = null): ParseResult
+    public function parse(string $input, ?string $startRule = null, ?ParserOptions $options = null, ?ParserTraceRecorder $traceRecorder = null): ParseResult
     {
         $parser = new Parser($options ?? new ParserOptions());
 
-        return $parser->parse($this, $input, $startRule, $options);
+        return $parser->parse($this, $input, $startRule, $options, $traceRecorder);
     }
 
     /**
      * Parses an editable source-preserving document.
      */
-    public function parseDocument(string $input, ?string $startRule = null, ?ParserOptions $options = null): ParsedDocument
+    public function parseDocument(string $input, ?string $startRule = null, ?ParserOptions $options = null, ?ParserTraceRecorder $traceRecorder = null): ParsedDocument
     {
-        $result = $this->parse($input, $startRule, $options);
+        $result = $this->parse($input, $startRule, $options, $traceRecorder);
         if (!$result->isSuccess() || $result->node() === null) {
             throw new RuntimeException($result->error()?->message() ?? 'Unable to parse document.');
         }

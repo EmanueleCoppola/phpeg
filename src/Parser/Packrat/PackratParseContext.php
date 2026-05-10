@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace EmanueleCoppola\PHPeg\Parser\Packrat;
 
+use EmanueleCoppola\PHPeg\App\Trace\ParserTraceRecorder;
 use EmanueleCoppola\PHPeg\Error\LeftRecursionException;
 use EmanueleCoppola\PHPeg\Grammar\Grammar;
 use EmanueleCoppola\PHPeg\Grammar\Rule;
@@ -30,8 +31,9 @@ class PackratParseContext extends ParseContext
         Grammar $grammar,
         InputBuffer $input,
         ParserOptions $options = new ParserOptions(),
+        ?ParserTraceRecorder $traceRecorder = null,
     ) {
-        parent::__construct($grammar, $input, $options);
+        parent::__construct($grammar, $input, $options, $traceRecorder);
     }
 
     /**
@@ -41,6 +43,13 @@ class PackratParseContext extends ParseContext
     {
         $rule = $this->rules[$ruleName] ?? null;
         if ($rule === null) {
+            $frameId = $this->traceEnter('rule', [
+                'id' => 'rule:' . $ruleName,
+                'name' => $ruleName,
+                'label' => $ruleName,
+                'description' => sprintf('rule <%s>', $ruleName),
+            ], $offset);
+            $this->traceExit($frameId, false, null);
             $this->recordFailure($offset, sprintf('rule <%s>', $ruleName));
 
             return null;

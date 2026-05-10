@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace EmanueleCoppola\PHPeg\Parser\BottomUp;
 
+use EmanueleCoppola\PHPeg\App\Trace\ParserTraceRecorder;
 use EmanueleCoppola\PHPeg\Error\LeftRecursionException;
 use EmanueleCoppola\PHPeg\Error\ParseError;
 use EmanueleCoppola\PHPeg\Grammar\Grammar;
@@ -37,13 +38,13 @@ class BottomUpParser
     /**
      * Parses input with the provided grammar.
      */
-    public function parse(Grammar $grammar, string $input, ?string $startRule = null, ?ParserOptions $options = null): ParseResult
+    public function parse(Grammar $grammar, string $input, ?string $startRule = null, ?ParserOptions $options = null, ?ParserTraceRecorder $traceRecorder = null): ParseResult
     {
         $ruleName = $startRule ?? $grammar->startRule();
         $inputBuffer = new InputBuffer($input);
 
         try {
-            $context = new BottomUpParseContext($grammar, $inputBuffer, $options ?? $this->options);
+            $context = new BottomUpParseContext($grammar, $inputBuffer, $options ?? $this->options, $traceRecorder);
             $result = $context->matchRule($ruleName, 0);
         } catch (LakeAnalysisException $exception) {
             return ParseResult::failure(
