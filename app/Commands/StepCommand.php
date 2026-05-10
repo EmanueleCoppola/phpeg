@@ -228,6 +228,10 @@ class StepCommand extends Command
      */
     private function visibleSteps(array $steps, string $mode): array
     {
+        if ($mode === 'matched') {
+            return $this->matchedVisibleSteps($steps);
+        }
+
         $visible = [];
 
         foreach ($steps as $index => $step) {
@@ -244,6 +248,260 @@ class StepCommand extends Command
         }
 
         return $visible;
+    }
+
+    /**
+     * Returns the successful steps that belong to the final successful parse branch.
+     *
+     * @param list<array<string, mixed>> $steps
+     * @return list<array<string, mixed>>
+     */
+    private function matchedVisibleSteps(array $steps): array
+    {
+        $frames = [];
+        $childrenByParent = [];
+
+        foreach ($steps as $index => $step) {
+            if (!is_array($step) || !isset($step['frameId']) || !is_int($step['frameId'])) {
+                continue;
+            }
+
+            $frameId = $step['frameId'];
+
+            if (($step['phase'] ?? null) === 'enter') {
+                $frames[$frameId] ??= [
+                    'enterIndex' => null,
+                    'exitIndex' => null,
+                    'success' => null,
+                    'parentFrameId' => null,
+                    'kind' => '',
+                ];
+
+                $frames[$frameId]['enterIndex'] = $index;
+                $frames[$frameId]['parentFrameId'] = is_int($step['parentFrameId'] ?? null) ? $step['parentFrameId'] : null;
+                $frames[$frameId]['kind'] = (string) ($step['target']['kind'] ?? '');
+
+                $parentFrameId = $frames[$frameId]['parentFrameId'];
+                if ($parentFrameId !== null) {
+                    $childrenByParent[$parentFrameId] ??= [];
+                    $childrenByParent[$parentFrameId][] = $frameId;
+                }
+            }
+
+            if (($step['phase'] ?? null) === 'exit') {
+                $frames[$frameId] ??= [
+                    'enterIndex' => null,
+                    'exitIndex' => null,
+                    'success' => null,
+                    'parentFrameId' => null,
+                    'kind' => '',
+                ];
+
+                $frames[$frameId]['exitIndex'] = $index;
+                $frames[$frameId]['success'] = !empty($step['success']);
+            }
+        }
+
+        foreach ($childrenByParent as &$childIds) {
+            usort(
+                $childIds,
+                static fn (int $left, int $right): int => ($frames[$left]['enterIndex'] ?? PHP_INT_MAX) <=> ($frames[$right]['enterIndex'] ?? PHP_INT_MAX),
+            );
+        }
+        unset($childIds);
+
+        $rootFrameId = $this->findLastSuccessfulRootFrameId($frames);
+        if ($rootFrameId === null) {
+            return $this->visibleSuccessfulExits($steps);
+        }
+
+        $winningFrameIds = [];
+        $this->collectWinningFrames($rootFrameId, $frames, $childrenByParent, $winningFrameIds);
+
+        $visible = [];
+        foreach ($steps as $index => $step) {
+            if (!is_array($step)) {
+                continue;
+            }
+
+            if (!$this->shouldIncludeMatchedStep($step)) {
+                continue;
+            }
+
+            $frameId = $step['frameId'] ?? null;
+            if (!is_int($frameId) || !isset($winningFrameIds[$frameId])) {
+                continue;
+            }
+
+            $step['__traceIndex'] = $index;
+            $visible[] = $step;
+        }
+
+        return $visible;
+    }
+
+    /**
+     * Returns whether a successful exit should be visible in matched mode.
+     *
+     * @param array<string, mixed> $step
+     */
+    private function shouldIncludeMatchedStep(array $step): bool
+    {
+        if (($step['phase'] ?? null) !== 'exit' || empty($step['success'])) {
+            return false;
+        }
+
+        $scope = (string) ($step['scope'] ?? '');
+        if ($scope === 'rule') {
+            return true;
+        }
+
+        $target = is_array($step['target'] ?? null) ? $step['target'] : [];
+        $kind = (string) ($target['kind'] ?? '');
+        $label = (string) ($target['label'] ?? $target['name'] ?? '');
+
+        if ($kind !== '' && str_ends_with($kind, 'SequenceExpression')) {
+            return false;
+        }
+
+        if ($kind !== '' && str_ends_with($kind, 'RuleReferenceExpression')) {
+            return false;
+        }
+
+        if ($kind !== '' && str_ends_with($kind, 'NamedCaptureExpression')) {
+            return false;
+        }
+
+        if (
+            $kind !== ''
+            && !str_ends_with($kind, 'LiteralExpression')
+            && !str_ends_with($kind, 'RegexExpression')
+            && !str_ends_with($kind, 'CharClassExpression')
+            && !str_ends_with($kind, 'EndOfInputExpression')
+            && !str_ends_with($kind, 'ZeroOrMoreExpression')
+            && !str_ends_with($kind, 'OneOrMoreExpression')
+            && !str_ends_with($kind, 'OptionalExpression')
+            && !str_ends_with($kind, 'LakeExpression')
+        ) {
+            return false;
+        }
+
+        if ($kind !== '' && str_ends_with($kind, 'EndOfInputExpression')) {
+            return true;
+        }
+
+        if ($label === 'EOF') {
+            return true;
+        }
+
+        $offset = $step['offset'] ?? null;
+        $endOffset = $step['endOffset'] ?? null;
+        if (is_int($offset) && is_int($endOffset) && $endOffset <= $offset) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Returns the fallback matched-mode view when the winning branch cannot be reconstructed.
+     *
+     * @param list<array<string, mixed>> $steps
+     * @return list<array<string, mixed>>
+     */
+    private function visibleSuccessfulExits(array $steps): array
+    {
+        $visible = [];
+
+        foreach ($steps as $index => $step) {
+            if (!is_array($step)) {
+                continue;
+            }
+
+            if (($step['phase'] ?? null) !== 'exit' || empty($step['success'])) {
+                continue;
+            }
+
+            $step['__traceIndex'] = $index;
+            $visible[] = $step;
+        }
+
+        return $visible;
+    }
+
+    /**
+     * Finds the last successful root frame in the trace.
+     *
+     * @param array<int, array{enterIndex:int|null,exitIndex:int|null,success:bool|null,parentFrameId:int|null,kind:string}> $frames
+     */
+    private function findLastSuccessfulRootFrameId(array $frames): ?int
+    {
+        $rootFrameId = null;
+
+        foreach ($frames as $frameId => $info) {
+            if (($info['parentFrameId'] ?? null) !== null) {
+                continue;
+            }
+
+            if (empty($info['success'])) {
+                continue;
+            }
+
+            $rootFrameId = (int) $frameId;
+        }
+
+        return $rootFrameId;
+    }
+
+    /**
+     * Collects the frame ids that belong to the winning parse branch.
+     *
+     * @param array<int, array{enterIndex:int|null,exitIndex:int|null,success:bool|null,parentFrameId:int|null,kind:string}> $frames
+     * @param array<int, list<int>> $childrenByParent
+     * @param array<int, bool> $winningFrameIds
+     */
+    private function collectWinningFrames(int $frameId, array $frames, array $childrenByParent, array &$winningFrameIds): void
+    {
+        if (!isset($frames[$frameId]) || empty($frames[$frameId]['success'])) {
+            return;
+        }
+
+        $winningFrameIds[$frameId] = true;
+
+        $childIds = $childrenByParent[$frameId] ?? [];
+        if ($childIds === []) {
+            return;
+        }
+
+        $successfulChildIds = [];
+        foreach ($childIds as $childId) {
+            if (!empty($frames[$childId]['success'])) {
+                $successfulChildIds[] = $childId;
+            }
+        }
+
+        if ($successfulChildIds === []) {
+            return;
+        }
+
+        $kind = (string) ($frames[$frameId]['kind'] ?? '');
+        if ($this->isChoiceExpressionKind($kind)) {
+            $this->collectWinningFrames((int) $successfulChildIds[array_key_last($successfulChildIds)], $frames, $childrenByParent, $winningFrameIds);
+
+            return;
+        }
+
+        foreach ($successfulChildIds as $childId) {
+            $this->collectWinningFrames($childId, $frames, $childrenByParent, $winningFrameIds);
+        }
+    }
+
+    /**
+     * Returns whether the frame kind behaves like a choice.
+     */
+    private function isChoiceExpressionKind(string $kind): bool
+    {
+        return str_ends_with($kind, 'ChoiceExpression');
     }
 
     /**

@@ -43,7 +43,7 @@ class TraceConsoleRenderer
         if ($grammarView === 'tree') {
             $lines = array_merge($lines, $this->renderGrammarSnapshot($grammar, $activePath, $useColor));
         } else {
-            $lines = array_merge($lines, $this->renderGrammarSource($grammarSource, $activeRuleNames, $focusStep, $focusRuleName, $useColor));
+            $lines = array_merge($lines, $this->renderGrammarSource($grammar, $grammarSource, $activeRuleNames, $focusStep, $focusRuleName, $useColor));
         }
         $lines[] = '';
         $lines[] = $this->style($useColor, '1', 'Input');
@@ -138,7 +138,14 @@ class TraceConsoleRenderer
      * @param list<string> $activeRuleNames
      * @return list<string>
      */
-    private function renderGrammarSource(string $source, array $activeRuleNames, ?array $focusStep, ?string $focusRuleName, bool $useColor): array
+    private function renderGrammarSource(
+        array $grammar,
+        string $source,
+        array $activeRuleNames,
+        ?array $focusStep,
+        ?string $focusRuleName,
+        bool $useColor,
+    ): array
     {
         if ($source === '') {
             return ['(grammar source unavailable)'];
@@ -154,6 +161,7 @@ class TraceConsoleRenderer
         }
 
         $focusToken = $this->tokenForStep($focusStep);
+        $focusTokenOccurrence = $this->focusTokenOccurrence($grammar, $focusRuleName, $focusStep, $focusToken);
         $grammarLines = preg_split("/\\R/", $source) ?: [];
 
         foreach ($grammarLines as $line) {
@@ -189,6 +197,7 @@ class TraceConsoleRenderer
                     $activeRuleNames,
                     $activeIndex,
                     $focusToken,
+                    $focusTokenOccurrence,
                     $useColor,
                 );
 
@@ -208,7 +217,14 @@ class TraceConsoleRenderer
      *
      * @param list<string> $activeRuleNames
      */
-    private function highlightGrammarTail(string $tail, array $activeRuleNames, int $activeIndex, ?string $focusToken, bool $useColor): string
+    private function highlightGrammarTail(
+        string $tail,
+        array $activeRuleNames,
+        int $activeIndex,
+        ?string $focusToken,
+        int $focusTokenOccurrence,
+        bool $useColor,
+    ): string
     {
         $activeColors = $this->activeRuleColors($activeRuleNames);
         $tokens = [];
@@ -222,7 +238,7 @@ class TraceConsoleRenderer
         }
 
         if ($focusToken !== null && $focusToken !== '') {
-            $tail = $this->highlightFirstTokenOccurrence($tail, $focusToken, '1;43;30', $useColor);
+            $tail = $this->highlightTokenOccurrence($tail, $focusToken, max($focusTokenOccurrence, 1), '1;43;30', $useColor);
         }
 
         return $this->highlightTokens($tail, $tokens, $useColor);
@@ -516,6 +532,96 @@ class TraceConsoleRenderer
     }
 
     /**
+     * Determines which occurrence of the focus token should be highlighted in the active rule tail.
+     *
+     * @param array<string, mixed> $grammar
+     * @param array<string, mixed>|null $focusStep
+     */
+    private function focusTokenOccurrence(array $grammar, ?string $focusRuleName, ?array $focusStep, ?string $focusToken): int
+    {
+        if ($focusRuleName === null || $focusRuleName === '' || $focusStep === null) {
+            return 1;
+        }
+
+        if ($focusToken === null || $focusToken === '') {
+            return 1;
+        }
+
+        $rule = $this->findRuleByName($grammar, $focusRuleName);
+        $expression = is_array($rule['expression'] ?? null) ? $rule['expression'] : null;
+        $targetId = is_array($focusStep['target'] ?? null) ? ($focusStep['target']['id'] ?? null) : null;
+
+        if ($expression === null || !is_string($targetId) || $targetId === '') {
+            return 1;
+        }
+
+        $occurrence = 0;
+        $resolved = $this->resolveTokenOccurrence($expression, $targetId, $focusToken, $occurrence);
+
+        return $resolved ?? 1;
+    }
+
+    /**
+     * Finds a rule node by name in the grammar snapshot.
+     *
+     * @param array<string, mixed> $grammar
+     * @return array<string, mixed>|null
+     */
+    private function findRuleByName(array $grammar, string $ruleName): ?array
+    {
+        foreach ($grammar['rules'] ?? [] as $rule) {
+            if (!is_array($rule)) {
+                continue;
+            }
+
+            if (($rule['name'] ?? null) === $ruleName) {
+                return $rule;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolves the ordinal occurrence of a token node within an expression subtree.
+     *
+     * @param array<string, mixed> $node
+     */
+    private function resolveTokenOccurrence(array $node, string $targetId, string $focusToken, int &$occurrence): ?int
+    {
+        $nodeId = $node['id'] ?? null;
+        $nodeToken = $this->tokenForNode($node);
+
+        if ($nodeToken === $focusToken) {
+            $occurrence++;
+
+            if (is_string($nodeId) && $nodeId === $targetId) {
+                return $occurrence;
+            }
+        }
+
+        foreach ($node['children'] ?? [] as $child) {
+            if (!is_array($child)) {
+                continue;
+            }
+
+            $resolved = $this->resolveTokenOccurrence($child, $targetId, $focusToken, $occurrence);
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+
+        if (isset($node['expression']) && is_array($node['expression'])) {
+            $resolved = $this->resolveTokenOccurrence($node['expression'], $targetId, $focusToken, $occurrence);
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Finds the deepest successful descendant step for a given frame.
      *
      * @param list<array<string, mixed>> $steps
@@ -679,21 +785,27 @@ class TraceConsoleRenderer
     /**
      * Highlights only the first occurrence of a token inside a string.
      */
-    private function highlightFirstTokenOccurrence(string $text, string $token, string $style, bool $useColor): string
+    private function highlightTokenOccurrence(string $text, string $token, int $occurrence, string $style, bool $useColor): string
     {
-        if ($token === '') {
+        if ($token === '' || $occurrence < 1) {
             return $text;
         }
 
         $pattern = '/(?<![A-Za-z0-9_])' . preg_quote($token, '/') . '(?![A-Za-z0-9_])/';
+        $count = 0;
 
         return preg_replace_callback(
             $pattern,
-            function (array $matches) use ($useColor, $style): string {
-                return $this->style($useColor, $style, $matches[0]);
+            function (array $matches) use ($useColor, $style, &$count, $occurrence): string {
+                $count++;
+
+                if ($count === $occurrence) {
+                    return $this->style($useColor, $style, $matches[0]);
+                }
+
+                return $matches[0];
             },
             $text,
-            1,
         ) ?? $text;
     }
 

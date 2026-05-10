@@ -166,6 +166,112 @@ class TraceCommandTest extends TestCase
     }
 
     /**
+     * Verifies matched mode keeps only the winning branch and drops backtracked successes.
+     */
+    public function testMatchedModeDropsBacktrackedSuccessfulBranches(): void
+    {
+        $command = new \EmanueleCoppola\PHPeg\App\Commands\StepCommand();
+        $reflection = new \ReflectionMethod($command, 'visibleSteps');
+
+        $steps = [
+            [
+                'phase' => 'enter',
+                'frameId' => 1,
+                'parentFrameId' => null,
+                'target' => ['kind' => 'EmanueleCoppola\\PHPeg\\Expression\\SequenceExpression', 'label' => 'sequence'],
+            ],
+            [
+                'phase' => 'enter',
+                'frameId' => 2,
+                'parentFrameId' => 1,
+                'target' => ['kind' => 'EmanueleCoppola\\PHPeg\\Expression\\SequenceExpression', 'label' => 'sequence'],
+            ],
+            [
+                'phase' => 'enter',
+                'frameId' => 3,
+                'parentFrameId' => 2,
+                'target' => ['kind' => 'EmanueleCoppola\\PHPeg\\Expression\\LiteralExpression', 'label' => '"a"'],
+            ],
+            [
+                'phase' => 'exit',
+                'frameId' => 3,
+                'parentFrameId' => 2,
+                'success' => true,
+                'target' => ['kind' => 'EmanueleCoppola\\PHPeg\\Expression\\LiteralExpression', 'label' => '"a"'],
+            ],
+            [
+                'phase' => 'exit',
+                'frameId' => 2,
+                'parentFrameId' => 1,
+                'success' => false,
+                'target' => ['kind' => 'EmanueleCoppola\\PHPeg\\Expression\\SequenceExpression', 'label' => 'sequence'],
+            ],
+            [
+                'phase' => 'enter',
+                'frameId' => 4,
+                'parentFrameId' => 1,
+                'target' => ['kind' => 'EmanueleCoppola\\PHPeg\\Expression\\SequenceExpression', 'label' => 'sequence'],
+            ],
+            [
+                'phase' => 'enter',
+                'frameId' => 5,
+                'parentFrameId' => 4,
+                'target' => ['kind' => 'EmanueleCoppola\\PHPeg\\Expression\\LiteralExpression', 'label' => '"b"'],
+            ],
+            [
+                'phase' => 'enter',
+                'frameId' => 6,
+                'parentFrameId' => 4,
+                'target' => ['kind' => 'EmanueleCoppola\\PHPeg\\Expression\\RegexExpression', 'label' => 'regex([ \\t\\r\\n]*)'],
+            ],
+            [
+                'phase' => 'exit',
+                'frameId' => 6,
+                'parentFrameId' => 4,
+                'success' => true,
+                'offset' => 1,
+                'endOffset' => 1,
+                'target' => ['kind' => 'EmanueleCoppola\\PHPeg\\Expression\\RegexExpression', 'label' => 'regex([ \\t\\r\\n]*)'],
+            ],
+            [
+                'phase' => 'exit',
+                'frameId' => 5,
+                'parentFrameId' => 4,
+                'success' => true,
+                'offset' => 1,
+                'endOffset' => 2,
+                'target' => ['kind' => 'EmanueleCoppola\\PHPeg\\Expression\\LiteralExpression', 'label' => '"b"'],
+            ],
+            [
+                'phase' => 'exit',
+                'frameId' => 4,
+                'parentFrameId' => 1,
+                'success' => true,
+                'offset' => 1,
+                'endOffset' => 2,
+                'target' => ['kind' => 'EmanueleCoppola\\PHPeg\\Expression\\SequenceExpression', 'label' => 'sequence'],
+            ],
+            [
+                'phase' => 'exit',
+                'frameId' => 1,
+                'parentFrameId' => null,
+                'success' => true,
+                'offset' => 0,
+                'endOffset' => 2,
+                'target' => ['kind' => 'EmanueleCoppola\\PHPeg\\Expression\\SequenceExpression', 'label' => 'sequence'],
+            ],
+        ];
+
+        /** @var list<array<string, mixed>> $visibleSteps */
+        $visibleSteps = $reflection->invoke($command, $steps, 'matched');
+
+        self::assertSame([5], array_values(array_map(
+            static fn (array $step): int => (int) $step['frameId'],
+            $visibleSteps,
+        )));
+    }
+
+    /**
      * Verifies recursive active paths keep repeated rule names visible.
      */
     public function testRendersRecursiveActivePathWithRepeatedRules(): void
@@ -235,9 +341,23 @@ class TraceCommandTest extends TestCase
         $payload = json_decode((string) file_get_contents($outputPath), true, 512, JSON_THROW_ON_ERROR);
 
         $renderer = new TraceConsoleRenderer();
-        $rendered = $renderer->render($payload, 40, true, 'source', 'all');
+        $rendered = $renderer->render($payload, 235, true, 'source', 'all');
 
         self::assertSame(1, substr_count($rendered, "\033[1;43;30m\">\"\033[0m"));
+
+        $elementLine = null;
+        foreach (preg_split("/\\R/", $rendered) ?: [] as $line) {
+            $plainLine = preg_replace('/\\e\\[[0-9;]*m/', '', $line) ?? $line;
+            if (str_contains($plainLine, 'Element =')) {
+                $elementLine = $line;
+                break;
+            }
+        }
+
+        self::assertNotNull($elementLine);
+        self::assertStringContainsString('"<" tag@OpenTagName ">"', $elementLine);
+        self::assertStringContainsString('</" tag@CloseTagName ' . "\033[1;43;30m\">\"\033[0m", $elementLine);
+        self::assertStringNotContainsString('"<" tag@OpenTagName ' . "\033[1;43;30m\">\"\033[0m", $elementLine);
 
         @unlink($outputPath);
     }
