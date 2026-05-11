@@ -93,6 +93,7 @@ The available options and recommended combinations are documented in [`docs/opti
 - Classic PEG loader: [`docs/grammar/classic-peg-loader.md`](docs/grammar/classic-peg-loader.md)
 - Lake symbols: [`docs/lake-symbols.md`](docs/lake-symbols.md)
 - AST overview: [`docs/ast.md`](docs/ast.md)
+- AST walking and visiting: [`docs/ast/walking.md`](docs/ast/walking.md)
 - Parser options: [`docs/options.md`](docs/options.md)
 - CLI: [`docs/cli.md`](docs/cli.md)
 - Examples catalog: [`docs/examples.md`](docs/examples.md)
