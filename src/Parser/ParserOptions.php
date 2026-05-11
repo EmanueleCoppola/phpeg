@@ -20,6 +20,7 @@ class ParserOptions
         private readonly bool $optimizeErrors = false,
         private readonly bool $reuseEmptyMatches = false,
         private readonly bool $lazyNodeText = true,
+        private readonly ParserRuntimeMode $runtimeMode = ParserRuntimeMode::Auto,
     ) {
         if ($maxCacheEntries !== null && $maxCacheEntries < 0) {
             throw new RuntimeException('maxCacheEntries must be greater than or equal to zero.');
@@ -72,6 +73,14 @@ class ParserOptions
     public function lazyNodeText(): bool
     {
         return $this->lazyNodeText;
+    }
+
+    /**
+     * Returns the configured parser runtime mode.
+     */
+    public function runtimeMode(): ParserRuntimeMode
+    {
+        return $this->runtimeMode;
     }
 
     /**
@@ -141,13 +150,29 @@ class ParserOptions
             optimizeErrors: $this->optimizeErrors,
             reuseEmptyMatches: $this->reuseEmptyMatches,
             lazyNodeText: $enabled,
+            runtimeMode: $this->runtimeMode,
+        );
+    }
+
+    /**
+     * Returns a copy with an updated parser runtime mode.
+     */
+    public function withRuntimeMode(ParserRuntimeMode $runtimeMode): self
+    {
+        return new self(
+            memoizationEnabled: $this->memoizationEnabled,
+            maxCacheEntries: $this->maxCacheEntries,
+            optimizeErrors: $this->optimizeErrors,
+            reuseEmptyMatches: $this->reuseEmptyMatches,
+            lazyNodeText: $this->lazyNodeText,
+            runtimeMode: $runtimeMode,
         );
     }
 
     /**
      * Returns a human-readable summary for diagnostics and benchmarks.
      *
-     * @return array<string, bool|int|null>
+     * @return array<string, bool|int|string|null>
      */
     public function toArray(): array
     {
@@ -157,6 +182,7 @@ class ParserOptions
             'optimizeErrors' => $this->optimizeErrors,
             'reuseEmptyMatches' => $this->reuseEmptyMatches,
             'lazyNodeText' => $this->lazyNodeText,
+            'runtimeMode' => $this->runtimeMode->value,
         ];
     }
 }

@@ -7,6 +7,7 @@ namespace EmanueleCoppola\PHPeg\Tests\Parser;
 use EmanueleCoppola\PHPeg\Builder\GrammarBuilder;
 use EmanueleCoppola\PHPeg\App\Trace\ParserTraceRecorder;
 use EmanueleCoppola\PHPeg\Parser\ParserOptions;
+use EmanueleCoppola\PHPeg\Parser\ParserRuntimeMode;
 use PHPUnit\Framework\TestCase;
 
 class ParserTest extends TestCase
@@ -36,6 +37,30 @@ class ParserTest extends TestCase
         self::assertTrue($grammar->requiresLeftRecursion());
         self::assertTrue($result->isSuccess());
         self::assertSame('aaa', $result->matchedText());
+    }
+
+    /**
+     * Verifies the runtime mode can be forced to bottom-up without relying on left recursion detection.
+     */
+    public function testCanForceBottomUpParsing(): void
+    {
+        $grammar = $this->simpleGrammar();
+        $result = $grammar->parse('a', options: ParserOptions::defaults()->withRuntimeMode(ParserRuntimeMode::BottomUp));
+
+        self::assertTrue($result->isSuccess());
+        self::assertSame('a', $result->matchedText());
+    }
+
+    /**
+     * Verifies the runtime mode can be forced to packrat even for left-recursive grammars.
+     */
+    public function testCanForcePackratParsing(): void
+    {
+        $grammar = $this->leftRecursiveGrammar();
+        $result = $grammar->parse('aaa', options: ParserOptions::defaults()->withRuntimeMode(ParserRuntimeMode::Packrat));
+
+        self::assertFalse($result->isSuccess());
+        self::assertNotNull($result->error());
     }
 
     /**

@@ -44,10 +44,21 @@ class Parser
      */
     public function parse(Grammar $grammar, string $input, ?string $startRule = null, ?ParserOptions $options = null, ?ParserTraceRecorder $traceRecorder = null): ParseResult
     {
-        if ($grammar->requiresLeftRecursion()) {
-            return (new BottomUpParser($this->options))->parse($grammar, $input, $startRule, $options, $traceRecorder);
+        $effectiveOptions = $options ?? $this->options;
+        $runtimeMode = $effectiveOptions->runtimeMode();
+
+        if ($runtimeMode === ParserRuntimeMode::BottomUp) {
+            return (new BottomUpParser($effectiveOptions))->parse($grammar, $input, $startRule, $effectiveOptions, $traceRecorder);
         }
 
-        return (new PackratParser($this->options))->parse($grammar, $input, $startRule, $options, $traceRecorder);
+        if ($runtimeMode === ParserRuntimeMode::Packrat) {
+            return (new PackratParser($effectiveOptions))->parse($grammar, $input, $startRule, $effectiveOptions, $traceRecorder);
+        }
+
+        if ($grammar->requiresLeftRecursion()) {
+            return (new BottomUpParser($effectiveOptions))->parse($grammar, $input, $startRule, $effectiveOptions, $traceRecorder);
+        }
+
+        return (new PackratParser($effectiveOptions))->parse($grammar, $input, $startRule, $effectiveOptions, $traceRecorder);
     }
 }
