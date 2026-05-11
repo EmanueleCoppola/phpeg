@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace EmanueleCoppola\PHPeg\Grammar;
 
 use RuntimeException;
+use EmanueleCoppola\PHPeg\Expression\ExpressionVisitorInterface;
 use EmanueleCoppola\PHPeg\App\Trace\ParserTraceRecorder;
 use EmanueleCoppola\PHPeg\Document\ParsedDocument;
 use EmanueleCoppola\PHPeg\Expression\ExpressionInterface;
@@ -144,6 +145,14 @@ class Grammar
         }
 
         return new ParsedDocument($this, $input, $result->node());
+    }
+
+    /**
+     * Traverses the grammar's expression graph.
+     */
+    public function traverseExpressions(ExpressionVisitorInterface $visitor, ?string $startRule = null, bool $includeLakeProfiles = true): void
+    {
+        (new GrammarExpressionTraverser($visitor))->traverse($this, $startRule, $includeLakeProfiles);
     }
 
 }

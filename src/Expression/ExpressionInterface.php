@@ -26,4 +26,9 @@ interface ExpressionInterface
      * Returns whether the expression depends on parser state that can change across backtracking.
      */
     public function isStateful(): bool;
+
+    /**
+     * Dispatches the expression to a visitor.
+     */
+    public function accept(ExpressionVisitorInterface $visitor, int $depth = 0): void;
 }
