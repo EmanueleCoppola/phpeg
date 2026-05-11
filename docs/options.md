@@ -13,6 +13,7 @@ Use `ParserOptions::defaults()` when you want the library's general-purpose beha
 | `optimizeErrors` | `false` | Reduces failure bookkeeping when the parse succeeds. | Successful parses matter more than detailed failure reporting. | Error messages can become less detailed or less precise. |
 | `reuseEmptyMatches` | `false` | Reuses zero-width matches by offset. | Your grammar naturally produces many empty matches and you want to avoid recomputing them. | Can make edge cases harder to reason about if the grammar relies on repeated empty matches. |
 | `lazyNodeText` | `true` | Delays loading original AST node text until it is needed. | You want source-preserving ASTs without eagerly materializing all node text. | Turning it off can simplify debugging, but it increases upfront text copying. |
+| `runtimeMode` | `auto` | Selects the parser runtime explicitly (`auto`, `packrat`, or `bottom-up`). | You want to force a specific parsing strategy for profiling, debugging, or parser research. | Forcing a runtime can bypass the library's automatic choice and may fail if the selected mode is not appropriate for the grammar. |
 
 ## Practical Profiles
 
@@ -74,6 +75,21 @@ Use this when you want node text to be materialized immediately and you are insp
 - easier to inspect node text during debugging
 - slightly more eager allocation
 - useful in tests and diagnostics
+
+### Runtime-Controlled
+
+```php
+use EmanueleCoppola\PHPeg\Parser\ParserRuntimeMode;
+
+$options = ParserOptions::defaults()
+    ->withRuntimeMode(ParserRuntimeMode::BottomUp);
+```
+
+Use this when you want to override the default auto-selection and inspect a specific runtime path.
+
+- `auto` keeps current behavior
+- `packrat` forces the standard top-down path
+- `bottom-up` forces the left-recursive path even when the grammar is not left-recursive
 
 ## Related Pages
 

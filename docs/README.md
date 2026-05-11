@@ -13,6 +13,7 @@ This directory contains the main documentation for PHPeg.
 
 - [CLI](cli.md)
 - [AST](ast.md)
+- [AST walking and visiting](ast/walking.md)
 - [Parser options](options.md)
 - [Recursive grammars](recursive-grammars.md)
 - [Lake symbols](lake-symbols.md)
