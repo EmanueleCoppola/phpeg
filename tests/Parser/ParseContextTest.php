@@ -6,7 +6,6 @@ namespace EmanueleCoppola\PHPeg\Tests\Parser;
 
 use EmanueleCoppola\PHPeg\Builder\GrammarBuilder;
 use EmanueleCoppola\PHPeg\Expression\ExpressionInterface;
-use EmanueleCoppola\PHPeg\Expression\ExpressionVisitorInterface;
 use EmanueleCoppola\PHPeg\Parser\InputBuffer;
 use EmanueleCoppola\PHPeg\Parser\Packrat\PackratParseContext;
 use EmanueleCoppola\PHPeg\Parser\ParseContext;
@@ -150,13 +149,5 @@ class CountingLiteralExpression implements ExpressionInterface
     public function isStateful(): bool
     {
         return false;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function accept(ExpressionVisitorInterface $visitor, int $depth = 0): void
-    {
-        $visitor->visitExpression($this, $depth);
     }
 }

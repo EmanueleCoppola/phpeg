@@ -27,8 +27,4 @@ interface ExpressionInterface
      */
     public function isStateful(): bool;
 
-    /**
-     * Dispatches the expression to a visitor.
-     */
-    public function accept(ExpressionVisitorInterface $visitor, int $depth = 0): void;
 }

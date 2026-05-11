@@ -166,7 +166,7 @@ class GrammarExpressionTraverser extends AbstractExpressionVisitor
         }
 
         $this->visitedExpressions[$key] = true;
-        $expression->accept($this, $depth);
+        $this->dispatch($expression, $depth);
 
         match (true) {
             $expression instanceof SequenceExpression => $this->walkSequence($expression, $grammar, $depth),
@@ -181,6 +181,30 @@ class GrammarExpressionTraverser extends AbstractExpressionVisitor
             $expression instanceof SpanNotEqualExpression => $this->walkSpanNotEqual($expression, $grammar, $depth),
             $expression instanceof RuleReferenceExpression => $this->walkRuleReference($expression, $grammar, $depth),
             default => null,
+        };
+    }
+
+    private function dispatch(ExpressionInterface $expression, int $depth): void
+    {
+        match (true) {
+            $expression instanceof AnyCharacterExpression => $this->visitAnyCharacter($expression, $depth),
+            $expression instanceof AndPredicateExpression => $this->visitAndPredicate($expression, $depth),
+            $expression instanceof ChoiceExpression => $this->visitChoice($expression, $depth),
+            $expression instanceof CharClassExpression => $this->visitCharClass($expression, $depth),
+            $expression instanceof EndOfInputExpression => $this->visitEndOfInput($expression, $depth),
+            $expression instanceof LakeExpression => $this->visitLake($expression, $depth),
+            $expression instanceof LiteralExpression => $this->visitLiteral($expression, $depth),
+            $expression instanceof NamedCaptureExpression => $this->visitNamedCapture($expression, $depth),
+            $expression instanceof NotPredicateExpression => $this->visitNotPredicate($expression, $depth),
+            $expression instanceof OneOrMoreExpression => $this->visitOneOrMore($expression, $depth),
+            $expression instanceof OptionalExpression => $this->visitOptional($expression, $depth),
+            $expression instanceof RegexExpression => $this->visitRegex($expression, $depth),
+            $expression instanceof RuleReferenceExpression => $this->visitRuleReference($expression, $depth),
+            $expression instanceof SequenceExpression => $this->visitSequence($expression, $depth),
+            $expression instanceof SpanEqualExpression => $this->visitSpanEqual($expression, $depth),
+            $expression instanceof SpanNotEqualExpression => $this->visitSpanNotEqual($expression, $depth),
+            $expression instanceof ZeroOrMoreExpression => $this->visitZeroOrMore($expression, $depth),
+            default => $this->visitExpression($expression, $depth),
         };
     }
 
