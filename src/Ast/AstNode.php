@@ -236,6 +236,152 @@ class AstNode
     }
 
     /**
+     * Traverses the subtree in depth-first pre-order.
+     *
+     * The visitor may return one of:
+     * - `AstTraversalAction::Continue` to keep visiting descendants
+     * - `AstTraversalAction::SkipChildren` to skip the current node's descendants
+     * - `AstTraversalAction::Stop` to stop traversal entirely
+     * - `true` or `null` as shorthand for continue
+     * - `false` as shorthand for stop
+     *
+     * @param callable(AstNode, int): (AstTraversalAction|bool|null)|AstVisitorInterface $visitor
+     */
+    public function traverseDepthFirst(callable|AstVisitorInterface $visitor, bool $includeSelf = true): void
+    {
+        $visitor = $this->normalizeVisitor($visitor);
+
+        if ($includeSelf) {
+            $action = $this->normalizeTraversalAction($visitor($this, 0));
+            if ($action === AstTraversalAction::Stop) {
+                return;
+            }
+
+            if ($action !== AstTraversalAction::SkipChildren) {
+                $this->traverseDepthFirstChildren($visitor, 1);
+            }
+
+            return;
+        }
+
+        $this->traverseDepthFirstChildren($visitor, 0);
+    }
+
+    /**
+     * Traverses the subtree in breadth-first order.
+     *
+     * The visitor follows the same return contract as traverseDepthFirst().
+     *
+     * @param callable(AstNode, int): (AstTraversalAction|bool|null)|AstVisitorInterface $visitor
+     */
+    public function traverseBreadthFirst(callable|AstVisitorInterface $visitor, bool $includeSelf = true): void
+    {
+        $visitor = $this->normalizeVisitor($visitor);
+        $queue = [];
+
+        if ($includeSelf) {
+            $queue[] = [$this, 0];
+        } else {
+            foreach ($this->children() as $child) {
+                $queue[] = [$child, 0];
+            }
+        }
+
+        while ($queue !== []) {
+            [$node, $depth] = array_shift($queue);
+            $action = $this->normalizeTraversalAction($visitor($node, $depth));
+
+            if ($action === AstTraversalAction::Stop) {
+                return;
+            }
+
+            if ($action === AstTraversalAction::SkipChildren) {
+                continue;
+            }
+
+            foreach ($node->children() as $child) {
+                $queue[] = [$child, $depth + 1];
+            }
+        }
+    }
+
+    /**
+     * Traverses only nonterminal nodes, meaning nodes that have children.
+     *
+     * @param callable(AstNode, int): (AstTraversalAction|bool|null)|AstVisitorInterface $visitor
+     */
+    public function traverseNonterminals(callable|AstVisitorInterface $visitor, bool $includeSelf = true): void
+    {
+        $this->traverseDepthFirst(
+            function (AstNode $node, int $depth) use ($visitor): AstTraversalAction|bool|null {
+                if ($node->children() === []) {
+                    return AstTraversalAction::Continue;
+                }
+
+                $normalized = $this->normalizeVisitor($visitor);
+                return $normalized($node, $depth);
+            },
+            $includeSelf,
+        );
+    }
+
+    /**
+     * Traverses only leaf nodes.
+     *
+     * @param callable(AstNode, int): (AstTraversalAction|bool|null)|AstVisitorInterface $visitor
+     */
+    public function traverseLeaves(callable|AstVisitorInterface $visitor, bool $includeSelf = true): void
+    {
+        $this->traverseDepthFirst(
+            function (AstNode $node, int $depth) use ($visitor): AstTraversalAction|bool|null {
+                if ($node->children() !== []) {
+                    return AstTraversalAction::Continue;
+                }
+
+                $normalized = $this->normalizeVisitor($visitor);
+                return $normalized($node, $depth);
+            },
+            $includeSelf,
+        );
+    }
+
+    /**
+     * Traverses only lake nodes.
+     *
+     * @param callable(AstNode, int): (AstTraversalAction|bool|null)|AstVisitorInterface $visitor
+     */
+    public function traverseLakeNodes(callable|AstVisitorInterface $visitor, bool $includeSelf = true): void
+    {
+        $this->traverseDepthFirst(
+            function (AstNode $node, int $depth) use ($visitor): AstTraversalAction|bool|null {
+                if (!$node->isLake()) {
+                    return AstTraversalAction::Continue;
+                }
+
+                $normalized = $this->normalizeVisitor($visitor);
+                return $normalized($node, $depth);
+            },
+            $includeSelf,
+        );
+    }
+
+    /**
+     * Dispatches this node to a typed visitor.
+     */
+    public function accept(AstNodeVisitorInterface $visitor, int $depth = 0)
+    {
+        if ($this->isLake()) {
+            return $visitor->visitLake($this, $depth);
+        }
+
+        if ($this->children() === []) {
+            return $visitor->visitLeaf($this, $depth);
+        }
+
+        return $visitor->visitNonterminal($this, $depth);
+    }
+
+    /**
      * Queries descendants rooted at this node using the selector API.
      */
     public function query(string $selector): AstNodeCollection
@@ -639,6 +785,52 @@ class AstNode
         }
 
         return null;
+    }
+
+    /**
+     * @param callable(AstNode, int): (AstTraversalAction|bool|null)|AstVisitorInterface $visitor
+     * @return callable(AstNode, int): (AstTraversalAction|bool|null)
+     */
+    private function normalizeVisitor(callable|AstVisitorInterface $visitor): callable
+    {
+        if ($visitor instanceof AstVisitorInterface) {
+            return $visitor->visit(...);
+        }
+
+        return $visitor;
+    }
+
+    /**
+     * @param callable(AstNode, int): (AstTraversalAction|bool|null) $visitor
+     */
+    private function traverseDepthFirstChildren(callable $visitor, int $depth): bool
+    {
+        foreach ($this->children() as $child) {
+            $action = $this->normalizeTraversalAction($visitor($child, $depth));
+            if ($action === AstTraversalAction::Stop) {
+                return false;
+            }
+
+            if ($action !== AstTraversalAction::SkipChildren) {
+                if (!$child->traverseDepthFirstChildren($visitor, $depth + 1)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param AstTraversalAction|bool|null $action
+     */
+    private function normalizeTraversalAction(AstTraversalAction|bool|null $action): AstTraversalAction
+    {
+        if ($action instanceof AstTraversalAction) {
+            return $action;
+        }
+
+        return $action === false ? AstTraversalAction::Stop : AstTraversalAction::Continue;
     }
 
     /**

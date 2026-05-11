@@ -6,8 +6,11 @@ namespace EmanueleCoppola\PHPeg\Document;
 
 use EmanueleCoppola\PHPeg\Ast\AstNode;
 use EmanueleCoppola\PHPeg\Ast\AstNodeCollection;
+use EmanueleCoppola\PHPeg\Ast\AstNodeVisitorInterface;
 use EmanueleCoppola\PHPeg\Ast\AstSelectorParser;
 use EmanueleCoppola\PHPeg\Ast\AstSelectorStep;
+use EmanueleCoppola\PHPeg\Ast\AstVisitorInterface;
+use EmanueleCoppola\PHPeg\Ast\AstTraversalAction;
 use EmanueleCoppola\PHPeg\Grammar\Grammar;
 use EmanueleCoppola\PHPeg\Printer\PrintPolicy;
 use EmanueleCoppola\PHPeg\Printer\SourcePreservingPrinter;
@@ -90,6 +93,72 @@ class ParsedDocument
         }
 
         return new AstNodeCollection($current, $this);
+    }
+
+    /**
+     * Traverses the document tree in depth-first pre-order.
+     *
+     * @param callable(AstNode, int): (AstTraversalAction|bool|null)|AstVisitorInterface $visitor
+     */
+    public function traverseDepthFirst(callable|AstVisitorInterface $visitor, bool $includeRoot = true): void
+    {
+        $this->root->traverseDepthFirst($visitor, $includeRoot);
+    }
+
+    /**
+     * Traverses the document tree in breadth-first order.
+     *
+     * @param callable(AstNode, int): (AstTraversalAction|bool|null)|AstVisitorInterface $visitor
+     */
+    public function traverseBreadthFirst(callable|AstVisitorInterface $visitor, bool $includeRoot = true): void
+    {
+        $this->root->traverseBreadthFirst($visitor, $includeRoot);
+    }
+
+    /**
+     * Traverses only nonterminal nodes in the document tree.
+     *
+     * @param callable(AstNode, int): (AstTraversalAction|bool|null)|AstVisitorInterface $visitor
+     */
+    public function traverseNonterminals(callable|AstVisitorInterface $visitor, bool $includeRoot = true): void
+    {
+        $this->root->traverseNonterminals($visitor, $includeRoot);
+    }
+
+    /**
+     * Traverses only leaf nodes in the document tree.
+     *
+     * @param callable(AstNode, int): (AstTraversalAction|bool|null)|AstVisitorInterface $visitor
+     */
+    public function traverseLeaves(callable|AstVisitorInterface $visitor, bool $includeRoot = true): void
+    {
+        $this->root->traverseLeaves($visitor, $includeRoot);
+    }
+
+    /**
+     * Traverses only lake nodes in the document tree.
+     *
+     * @param callable(AstNode, int): (AstTraversalAction|bool|null)|AstVisitorInterface $visitor
+     */
+    public function traverseLakeNodes(callable|AstVisitorInterface $visitor, bool $includeRoot = true): void
+    {
+        $this->root->traverseLakeNodes($visitor, $includeRoot);
+    }
+
+    /**
+     * Traverses the tree with a typed visitor.
+     */
+    public function accept(AstNodeVisitorInterface $visitor): void
+    {
+        $this->traverseDepthFirst(function (AstNode $node, int $depth) use ($visitor) {
+            $action = $node->accept($visitor, $depth);
+
+            if ($action === AstTraversalAction::Stop) {
+                return AstTraversalAction::Stop;
+            }
+
+            return $action;
+        });
     }
 
     /**
