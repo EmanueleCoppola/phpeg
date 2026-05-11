@@ -40,6 +40,9 @@ class GrammarExpressionTraverser extends AbstractExpressionVisitor
      */
     private array $visitedRules = [];
 
+    /**
+     * Creates a traverser bound to the target expression visitor.
+     */
     public function __construct(
         private readonly ExpressionVisitorInterface $visitor,
     ) {
@@ -50,6 +53,9 @@ class GrammarExpressionTraverser extends AbstractExpressionVisitor
      */
     public function traverse(Grammar $grammar, ?string $startRule = null, bool $includeLakeProfiles = true): void
     {
+        $this->visitedExpressions = [];
+        $this->visitedRules = [];
+
         $roots = $startRule === null
             ? array_values($grammar->rules())
             : [$grammar->rule($startRule) ?? throw new \InvalidArgumentException(sprintf('Unknown start rule "%s".', $startRule))];
@@ -65,91 +71,145 @@ class GrammarExpressionTraverser extends AbstractExpressionVisitor
         }
     }
 
+    /**
+     * Visits any expression kind.
+     */
     public function visitExpression(ExpressionInterface $expression, int $depth): void
     {
         $this->visitor->visitExpression($expression, $depth);
     }
 
+    /**
+     * Visits an any-character expression.
+     */
     public function visitAnyCharacter(AnyCharacterExpression $expression, int $depth): void
     {
         $this->visitor->visitAnyCharacter($expression, $depth);
     }
 
+    /**
+     * Visits a positive lookahead expression.
+     */
     public function visitAndPredicate(AndPredicateExpression $expression, int $depth): void
     {
         $this->visitor->visitAndPredicate($expression, $depth);
     }
 
+    /**
+     * Visits an ordered-choice expression.
+     */
     public function visitChoice(ChoiceExpression $expression, int $depth): void
     {
         $this->visitor->visitChoice($expression, $depth);
     }
 
+    /**
+     * Visits a character class expression.
+     */
     public function visitCharClass(CharClassExpression $expression, int $depth): void
     {
         $this->visitor->visitCharClass($expression, $depth);
     }
 
+    /**
+     * Visits an end-of-input expression.
+     */
     public function visitEndOfInput(EndOfInputExpression $expression, int $depth): void
     {
         $this->visitor->visitEndOfInput($expression, $depth);
     }
 
+    /**
+     * Visits a lake expression.
+     */
     public function visitLake(LakeExpression $expression, int $depth): void
     {
         $this->visitor->visitLake($expression, $depth);
     }
 
+    /**
+     * Visits a literal expression.
+     */
     public function visitLiteral(LiteralExpression $expression, int $depth): void
     {
         $this->visitor->visitLiteral($expression, $depth);
     }
 
+    /**
+     * Visits a named capture expression.
+     */
     public function visitNamedCapture(NamedCaptureExpression $expression, int $depth): void
     {
         $this->visitor->visitNamedCapture($expression, $depth);
     }
 
+    /**
+     * Visits a negative lookahead expression.
+     */
     public function visitNotPredicate(NotPredicateExpression $expression, int $depth): void
     {
         $this->visitor->visitNotPredicate($expression, $depth);
     }
 
+    /**
+     * Visits a one-or-more repetition expression.
+     */
     public function visitOneOrMore(OneOrMoreExpression $expression, int $depth): void
     {
         $this->visitor->visitOneOrMore($expression, $depth);
     }
 
+    /**
+     * Visits an optional expression.
+     */
     public function visitOptional(OptionalExpression $expression, int $depth): void
     {
         $this->visitor->visitOptional($expression, $depth);
     }
 
+    /**
+     * Visits a regular expression.
+     */
     public function visitRegex(RegexExpression $expression, int $depth): void
     {
         $this->visitor->visitRegex($expression, $depth);
     }
 
+    /**
+     * Visits a rule reference expression.
+     */
     public function visitRuleReference(RuleReferenceExpression $expression, int $depth): void
     {
         $this->visitor->visitRuleReference($expression, $depth);
     }
 
+    /**
+     * Visits a sequence expression.
+     */
     public function visitSequence(SequenceExpression $expression, int $depth): void
     {
         $this->visitor->visitSequence($expression, $depth);
     }
 
+    /**
+     * Visits an equal-span expression.
+     */
     public function visitSpanEqual(SpanEqualExpression $expression, int $depth): void
     {
         $this->visitor->visitSpanEqual($expression, $depth);
     }
 
+    /**
+     * Visits a not-equal-span expression.
+     */
     public function visitSpanNotEqual(SpanNotEqualExpression $expression, int $depth): void
     {
         $this->visitor->visitSpanNotEqual($expression, $depth);
     }
 
+    /**
+     * Visits a zero-or-more repetition expression.
+     */
     public function visitZeroOrMore(ZeroOrMoreExpression $expression, int $depth): void
     {
         $this->visitor->visitZeroOrMore($expression, $depth);

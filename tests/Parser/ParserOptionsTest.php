@@ -45,4 +45,34 @@ class ParserOptionsTest extends TestCase
         self::assertTrue($options->lazyNodeText());
         self::assertSame(ParserRuntimeMode::BottomUp, $options->runtimeMode());
     }
+
+    /**
+     * Verifies runtime mode survives option cloning helpers.
+     */
+    public function testCloningHelpersPreserveRuntimeMode(): void
+    {
+        $options = ParserOptions::defaults()
+            ->withRuntimeMode(ParserRuntimeMode::Packrat);
+
+        self::assertSame(
+            ParserRuntimeMode::Packrat,
+            $options->withMemoization(false)->runtimeMode(),
+        );
+        self::assertSame(
+            ParserRuntimeMode::Packrat,
+            $options->withMaxCacheEntries(1)->runtimeMode(),
+        );
+        self::assertSame(
+            ParserRuntimeMode::Packrat,
+            $options->withOptimizeErrors(true)->runtimeMode(),
+        );
+        self::assertSame(
+            ParserRuntimeMode::Packrat,
+            $options->withReuseEmptyMatches(true)->runtimeMode(),
+        );
+        self::assertSame(
+            ParserRuntimeMode::Packrat,
+            $options->withLazyNodeText(false)->runtimeMode(),
+        );
+    }
 }

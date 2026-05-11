@@ -94,6 +94,7 @@ class ParserOptions
             optimizeErrors: $this->optimizeErrors,
             reuseEmptyMatches: $this->reuseEmptyMatches,
             lazyNodeText: $this->lazyNodeText,
+            runtimeMode: $this->runtimeMode,
         );
     }
 
@@ -108,6 +109,7 @@ class ParserOptions
             optimizeErrors: $this->optimizeErrors,
             reuseEmptyMatches: $this->reuseEmptyMatches,
             lazyNodeText: $this->lazyNodeText,
+            runtimeMode: $this->runtimeMode,
         );
     }
 
@@ -122,6 +124,7 @@ class ParserOptions
             optimizeErrors: $enabled,
             reuseEmptyMatches: $this->reuseEmptyMatches,
             lazyNodeText: $this->lazyNodeText,
+            runtimeMode: $this->runtimeMode,
         );
     }
 
@@ -136,6 +139,7 @@ class ParserOptions
             optimizeErrors: $this->optimizeErrors,
             reuseEmptyMatches: $enabled,
             lazyNodeText: $this->lazyNodeText,
+            runtimeMode: $this->runtimeMode,
         );
     }
 
